@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-/root/docker/komari}"
-KOMARI_IMAGE="${KOMARI_IMAGE:-ghcr.io/ezvb/komari-monitor-1.2.5-fix2:1.2.5-fix2}"
+KOMARI_IMAGE="${KOMARI_IMAGE:-ghcr.io/ezvb/komari:1.2.5-fix2}"
 KOMARI_PORT="${KOMARI_PORT:-25774}"
 DEFAULT_ADMIN_USER="${ADMIN_USERNAME:-USA}"
 

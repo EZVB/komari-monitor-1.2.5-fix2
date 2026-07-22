@@ -23,6 +23,20 @@
 - 安装包、更新说明和版本标签以本仓库的 [Releases](https://github.com/EZVB/komari-monitor-1.2.5-fix2/releases) 为准。
 - 已部署实例升级前应备份数据库和配置文件。
 
+## Docker 镜像
+
+本维护版唯一发布和维护的镜像地址为：
+
+```text
+ghcr.io/ezvb/komari:1.2.5-fix2
+```
+
+拉取固定版本：
+
+```bash
+docker pull ghcr.io/ezvb/komari:1.2.5-fix2
+```
+
 ## 项目简介
 
 Komari Monitor 是一套轻量、自托管的服务器监控程序，可通过 Web 页面查看服务器运行状态，并由客户端上报资源、网络和运行信息。
