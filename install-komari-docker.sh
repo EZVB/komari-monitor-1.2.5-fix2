@@ -137,4 +137,3 @@ printf 'URL: http://%s:%s\n' "$host_ip" "$KOMARI_PORT"
 printf 'Administrator username: %s\n' "$ADMIN_USERNAME"
 printf '%s\n' "Administrator password was not printed or stored in shell history."
 printf '%s\n' "Data directory: $PROJECT_DIR/data"
-
