@@ -119,3 +119,56 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: true
           provenance: false
+
+  smoke-test:
+    needs: build-and-push-multi-arch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify published image starts successfully
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.version }}
+        run: |
+          set -Eeuo pipefail
+
+          container_name="komari-smoke-${GITHUB_RUN_ID}"
+          healthy=false
+
+          cleanup() {
+            status=$?
+            trap - EXIT
+
+            if [ "$status" -ne 0 ]; then
+              docker logs "$container_name" || true
+            fi
+
+            docker rm -f "$container_name" >/dev/null 2>&1 || true
+            exit "$status"
+          }
+          trap cleanup EXIT
+
+          docker pull "$IMAGE"
+          docker run -d \
+            --name "$container_name" \
+            -p 127.0.0.1:25774:25774 \
+            -e ADMIN_USERNAME=smoke \
+            -e ADMIN_PASSWORD=smoke-test-password \
+            "$IMAGE"
+
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:25774/ >/dev/null; then
+              healthy=true
+              break
+            fi
+
+            if [ "$(docker inspect --format '{{.State.Running}}' "$container_name")" != "true" ]; then
+              break
+            fi
+
+            sleep 2
+          done
+
+          [ "$healthy" = "true" ] || {
+            echo "Published Komari image did not become ready within 120 seconds." >&2
+            exit 1
+          }
