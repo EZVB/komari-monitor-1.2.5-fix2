@@ -55,6 +55,8 @@ git checkout main
 
 项目当前使用 Go `1.25.0`。
 
+默认前端源码固定维护在本仓库的 `frontend/` 目录。GitHub Actions 会直接编译该目录，不会在构建时克隆或同步官方前端仓库。
+
 ```bash
 go mod download
 go build -o komari .

@@ -1,13 +1,10 @@
 name: Build frontend theme
-description: Clone komari-web, build the default theme, and optionally upload it as an artifact.
+description: Build the bundled frontend and optionally upload it as an artifact.
 
 inputs:
   node-version:
     description: Node.js version used to build komari-web.
     default: "23"
-  repository:
-    description: komari-web repository URL.
-    default: https://github.com/komari-monitor/komari-web
   artifact-name:
     description: Optional artifact name for the packed frontend theme.
     default: ""
@@ -19,24 +16,24 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
 
-    - name: Clone and build frontend
+    - name: Build bundled frontend
       shell: bash
       run: |
         set -euxo pipefail
-        rm -rf komari-web
-        git clone --depth=1 "${{ inputs.repository }}" komari-web
-        cd komari-web
-        npm install
+        cd frontend
+        npm ci
         npm run build
         cd ..
 
         mkdir -p web/public/defaultTheme/dist
         rm -rf web/public/defaultTheme/dist/*
-        cp -r komari-web/dist/* web/public/defaultTheme/dist/
-        cp -f komari-web/komari-theme.json web/public/defaultTheme/
-        if [ -f komari-web/preview.png ]; then cp -f komari-web/preview.png web/public/defaultTheme/; fi
-        if [ -f komari-web/perview.png ]; then cp -f komari-web/perview.png web/public/defaultTheme/; fi
+        cp -r frontend/dist/* web/public/defaultTheme/dist/
+        cp -f frontend/komari-theme.json web/public/defaultTheme/
+        if [ -f frontend/preview.png ]; then cp -f frontend/preview.png web/public/defaultTheme/; fi
+        if [ -f frontend/perview.png ]; then cp -f frontend/perview.png web/public/defaultTheme/; fi
         if [ -f web/public/defaultTheme/preview.png ] && [ ! -f web/public/defaultTheme/perview.png ]; then cp -f web/public/defaultTheme/preview.png web/public/defaultTheme/perview.png; fi
         if [ -f web/public/defaultTheme/perview.png ] && [ ! -f web/public/defaultTheme/preview.png ]; then cp -f web/public/defaultTheme/perview.png web/public/defaultTheme/preview.png; fi
 
