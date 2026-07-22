@@ -127,10 +127,12 @@ jobs:
     steps:
       - name: Verify published image starts successfully
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.version }}
+          VERSION: ${{ github.event.inputs.version }}
         run: |
           set -Eeuo pipefail
 
+          image="${REGISTRY}/${IMAGE_NAME}:${VERSION}"
+          image="${image,,}"
           container_name="komari-smoke-${GITHUB_RUN_ID}"
           healthy=false
 
@@ -147,13 +149,13 @@ jobs:
           }
           trap cleanup EXIT
 
-          docker pull "$IMAGE"
+          docker pull "$image"
           docker run -d \
             --name "$container_name" \
             -p 127.0.0.1:25774:25774 \
             -e ADMIN_USERNAME=smoke \
             -e ADMIN_PASSWORD=smoke-test-password \
-            "$IMAGE"
+            "$image"
 
           for _ in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:25774/ >/dev/null; then
@@ -172,3 +174,4 @@ jobs:
             echo "Published Komari image did not become ready within 120 seconds." >&2
             exit 1
           }
+
