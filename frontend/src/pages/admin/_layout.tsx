@@ -11,12 +11,31 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Eula } from "@/utils/field";
 import { normalizeLanguage, readStoredLanguage } from "@/utils/language";
 
+const selectThemeBackground = (value: unknown) => {
+  if (typeof value !== "string") return "";
+
+  const variants = value.split("|").map((item) => item.trim());
+  const darkVariant = variants[1] || variants[0] || "";
+
+  return (
+    darkVariant
+      .split(",")
+      .map((item) => item.trim())
+      .find(Boolean) || ""
+  );
+};
+
 const AdminLoginBackground = ({ children }: { children?: ReactNode }) => {
   const { publicInfo } = usePublicInfo();
   const isMobile = useIsMobile();
-  const desktopBackground =
-    publicInfo?.theme_settings?.backgroundImageUrlDesktop;
-  const mobileBackground = publicInfo?.theme_settings?.backgroundImageUrlMobile;
+  const themeSettings = publicInfo?.theme_settings;
+  const desktopBackground = selectThemeBackground(
+    themeSettings?.backgroundImageUrlDesktop || themeSettings?.backgroundImage
+  );
+  const mobileBackground = selectThemeBackground(
+    themeSettings?.backgroundImageUrlMobile ||
+      themeSettings?.backgroundImageMobile
+  );
   const background = isMobile
     ? mobileBackground || desktopBackground
     : desktopBackground;
