@@ -208,7 +208,6 @@ func cleanupScheduledData() {
 	cfg, _ := config.GetManyAs[config.Settings]()
 	records.DeleteRecordBefore(time.Now().Add(-time.Hour * time.Duration(cfg.RecordPreserveTime)))
 	records.CompactRecord()
-	tasks.ClearTaskResultsByTimeBefore(time.Now().Add(-time.Hour * time.Duration(cfg.RecordPreserveTime)))
 	tasks.DeletePingRecordsBefore(time.Now().Add(-time.Hour * time.Duration(cfg.PingRecordPreserveTime)))
 	auditlog.RemoveOldLogs()
 	accounts.RemoveExpiredSessions()

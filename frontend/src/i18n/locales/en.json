@@ -92,7 +92,9 @@
       "token": "Token",
       "tokenPlaceholder": "Please enter Token",
       "trafficLimit": "Traffic Threshold",
-      "trafficLimit_description": "Used for the homepage traffic progress bar, set to 0 B to disable.",
+      "trafficLimit_description": "Used for the homepage traffic progress bar. Leave empty for unlimited traffic.",
+      "trafficMultiplier": "Traffic Multiplier",
+      "trafficMultiplier_description": "Applied to billed traffic and traffic-threshold usage. Set to 1 for actual traffic.",
       "trafficLimitType": "Traffic Limit Type",
       "trafficLimitType_down": "Download Only",
       "trafficLimitType_max": "Max",
@@ -357,32 +359,6 @@
   "current_online": "Current Online",
   "current_time": "Current Time",
   "delete": "Delete",
-  "exec": {
-    "allCompleted": "All tasks executed successfully",
-    "command": "Execute command",
-    "commandPlaceholder": "whoami (use Shift+Enter to start a new line)",
-    "description": "Remotely execute commands on selected nodes",
-    "errors": {
-      "emptyCommand": "The command cannot be empty.",
-      "executionFailed": "Execution failed",
-      "noNodes": "Please select at least one node."
-    },
-    "execute": "Remote Exec",
-    "executing": "Executing",
-    "pollingTimeout": "Task execution timed out",
-    "results": "Execute result",
-    "selectedNodes": "Selected node",
-    "selectNodes": "Select target node",
-    "status": {
-      "failed": "Failed",
-      "running": "Running",
-      "success": "Success",
-      "timeout": "Timeout"
-    },
-    "success": "Command execution completed",
-    "taskStarted": "The task has been initiated.",
-    "title": "Remote Exec"
-  },
   "go_to_home": "Go to home",
   "home_title": "Komari Monitor",
   "just_now": "Just now",

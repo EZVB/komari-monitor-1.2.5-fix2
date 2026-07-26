@@ -139,6 +139,7 @@ func sendTrafficReport(daily, weekly, monthly bool) {
 			log.Printf("Failed to compute traffic for client %s (%s): %v", n.Client, label, err)
 			continue
 		}
+		used = applyTrafficMultiplier(used, c.TrafficMultiplier)
 
 		lines = append(lines, fmt.Sprintf("%s%s：%s", c.Name, suffix, humanBytes(used)))
 		eventClients = append(eventClients, c)

@@ -328,14 +328,6 @@ func GetDBInstance() *gorm.DB {
 		if err != nil {
 			log.Printf("Failed to create Session table, it may already exist: %v", err)
 		}
-		err = instance.AutoMigrate(
-			&models.Task{},
-			&models.TaskResult{},
-		)
-		if err != nil {
-			log.Printf("Failed to create Task and TaskResult table, it may already exist: %v", err)
-		}
-
 		// Manually create composite indexes
 		if flags.IsSQLite() {
 			instance.Exec("CREATE INDEX IF NOT EXISTS idx_record_client_time ON records(client, time)")

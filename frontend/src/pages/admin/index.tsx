@@ -3,6 +3,7 @@ import {
   quoteShellArg,
   quoteShellArgs,
 } from "@/utils/shellQuote";
+import { normalizeTrafficMultiplier } from "@/utils/trafficHelper";
 import React, { useEffect, useState } from "react";
 import {
   NodeDetailsProvider,
@@ -2176,14 +2177,25 @@ function EditButton({ node }: { node: NodeDetail }) {
   const privateRemarkRef = React.useRef<HTMLTextAreaElement>(null);
   const [hidden, setHidden] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [traffic_limit, setTrafficLimit] = useState(0);
   const [traffic_limit_type, setTrafficLimitType] = useState("sum");
+  const [trafficLimitInput, setTrafficLimitInput] = useState("");
+  const [trafficMultiplierInput, setTrafficMultiplierInput] = useState("1");
 
   React.useEffect(() => {
     setHidden(node.hidden);
-    setTrafficLimit(node.traffic_limit || 0);
     setTrafficLimitType(node.traffic_limit_type || "sum");
-  }, [node.hidden, node.traffic_limit, node.traffic_limit_type]);
+    setTrafficLimitInput(
+      node.traffic_limit > 0 ? formatBytes(node.traffic_limit) : ""
+    );
+    setTrafficMultiplierInput(
+      String(normalizeTrafficMultiplier(node.traffic_multiplier))
+    );
+  }, [
+    node.hidden,
+    node.traffic_limit,
+    node.traffic_limit_type,
+    node.traffic_multiplier,
+  ]);
 
   const save = async () => {
     try {
@@ -2197,8 +2209,13 @@ function EditButton({ node }: { node: NodeDetail }) {
           group: groupRef.current?.value,
           tags: tagsRef.current?.value,
           hidden,
-          traffic_limit,
+          traffic_limit: trafficLimitInput.trim()
+            ? stringToBytes(trafficLimitInput)
+            : 0,
           traffic_limit_type,
+          traffic_multiplier: normalizeTrafficMultiplier(
+            trafficMultiplierInput
+          ),
         }),
         headers: {
           "Content-Type": "application/json",
@@ -2306,7 +2323,7 @@ function EditButton({ node }: { node: NodeDetail }) {
             <SettingCardSelect
               bordless
               title={t("admin.nodeEdit.trafficLimitType")}
-              defaultValue={node.traffic_limit_type || "max"}
+              value={traffic_limit_type}
               options={[
                 {
                   label: t("admin.nodeEdit.trafficLimitType_sum"),
@@ -2335,15 +2352,39 @@ function EditButton({ node }: { node: NodeDetail }) {
             />
             <SettingCardShortTextInput
               bordless
-              title={t("admin.nodeEdit.trafficLimit")}
-              description={t("admin.nodeEdit.trafficLimit_description")}
-              defaultValue={formatBytes(traffic_limit || 0)}
+              title={t("admin.nodeEdit.trafficMultiplier")}
+              description={t(
+                "admin.nodeEdit.trafficMultiplier_description"
+              )}
+              type="number"
+              min="0.0001"
+              step="0.1"
+              value={trafficMultiplierInput}
               showSaveButton={false}
               onChange={(e) => {
-                setTrafficLimit(stringToBytes(e.currentTarget.value));
+                setTrafficMultiplierInput(e.currentTarget.value);
               }}
-              onBlur={(e) => {
-                e.currentTarget.value = formatBytes(traffic_limit);
+              onBlur={() => {
+                setTrafficMultiplierInput(
+                  String(normalizeTrafficMultiplier(trafficMultiplierInput))
+                );
+              }}
+            />
+            <SettingCardShortTextInput
+              bordless
+              title={t("admin.nodeEdit.trafficLimit")}
+              description={t("admin.nodeEdit.trafficLimit_description")}
+              value={trafficLimitInput}
+              placeholder="∞"
+              showSaveButton={false}
+              onChange={(e) => {
+                setTrafficLimitInput(e.currentTarget.value);
+              }}
+              onBlur={() => {
+                const value = trafficLimitInput.trim();
+                setTrafficLimitInput(
+                  value ? formatBytes(stringToBytes(value)) : ""
+                );
               }}
             ></SettingCardShortTextInput>
           </SettingCardCollapse>

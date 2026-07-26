@@ -14,6 +14,11 @@ import { useTranslation } from "react-i18next";
 import Tips from "./ui/tips";
 
 import { formatBytes } from "@/utils/unitHelper";
+import {
+  applyTrafficMultiplier,
+  getTrafficUsage,
+  normalizeTrafficMultiplier,
+} from "@/utils/trafficHelper";
 
 /** 格式化秒*/
 export function formatUptime(seconds: number, t: TFunction): string {
@@ -67,8 +72,15 @@ const Node = React.memo(
 
   const uploadSpeed = formatBytes(liveData.network.up);
   const downloadSpeed = formatBytes(liveData.network.down);
-  const totalUpload = formatBytes(liveData.network.totalUp);
-  const totalDownload = formatBytes(liveData.network.totalDown);
+  const trafficMultiplier = normalizeTrafficMultiplier(
+    basic.traffic_multiplier,
+  );
+  const totalUpload = formatBytes(
+    applyTrafficMultiplier(liveData.network.totalUp, trafficMultiplier),
+  );
+  const totalDownload = formatBytes(
+    applyTrafficMultiplier(liveData.network.totalDown, trafficMultiplier),
+  );
   //const totalTraffic = formatBytes(liveData.network.totalUp + liveData.network.totalDown);
   return (
     <Card
@@ -193,6 +205,7 @@ const Node = React.memo(
                   liveData.network.totalDown,
                   basic.traffic_limit,
                   basic.traffic_limit_type ?? "sum",
+                  trafficMultiplier,
                 )}
                 max={Infinity}
               />
@@ -205,6 +218,7 @@ const Node = React.memo(
                     basic.traffic_limit_type.charAt(0).toUpperCase() +
                       basic.traffic_limit_type.slice(1)}
                   ({formatBytes(basic.traffic_limit)})
+                  {trafficMultiplier !== 1 ? ` ×${trafficMultiplier}` : ""}
                 </Text>
               </Flex>
             </Flex>
@@ -214,7 +228,7 @@ const Node = React.memo(
                 {t("nodeCard.totalTraffic")}
               </Text>
               <Text size="2">
-                ↑ {totalUpload} ↓ {totalDownload}
+                ↑ {totalUpload} ↓ {totalDownload} / ∞
               </Text>
             </Flex>
           )}
@@ -239,6 +253,7 @@ const Node = React.memo(
             <Flex direction="column">
               <Text size="2">
                 ↑ {totalUpload} ↓ {totalDownload}
+                {basic.traffic_limit > 0 ? "" : " / ∞"}
               </Text>
             </Flex>
           </Flex>
@@ -251,6 +266,7 @@ const Node = React.memo(
                 liveData.network.totalDown,
                 basic.traffic_limit,
                 basic.traffic_limit_type ?? "sum",
+                trafficMultiplier,
               )}
             />
           )}
@@ -357,20 +373,11 @@ function getTrafficPercentage(
   totalDown: number,
   limit: number,
   type: "max" | "min" | "sum" | "up" | "down",
+  multiplier = 1,
 ) {
   if (limit === 0) return 0;
-  switch (type) {
-    case "max":
-      return (Math.max(totalUp, totalDown) / limit) * 100;
-    case "min":
-      return (Math.min(totalUp, totalDown) / limit) * 100;
-    case "sum":
-      return ((totalUp + totalDown) / limit) * 100;
-    case "up":
-      return (totalUp / limit) * 100;
-    case "down":
-      return (totalDown / limit) * 100;
-    default:
-      return 0;
-  }
+  return (
+    (getTrafficUsage(totalUp, totalDown, type, multiplier) / limit) *
+    100
+  );
 }

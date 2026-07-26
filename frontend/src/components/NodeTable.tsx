@@ -23,6 +23,10 @@ import { DetailsGrid } from "./DetailsGrid";
 import MiniPingChart from "./MiniPingChart";
 import { getOSImage } from "@/utils";
 import { usePublicInfo } from "@/contexts/PublicInfoContext";
+import {
+  applyTrafficMultiplier,
+  normalizeTrafficMultiplier,
+} from "@/utils/trafficHelper";
 
 interface NodeTableProps {
   nodes: NodeBasicInfo[];
@@ -197,11 +201,27 @@ const NodeTable: React.FC<NodeTableProps> = ({ nodes, liveData, onlineSet }) => 
         break;
       }
       case "totalUp": {
-        comparison = aData.network.totalUp - bData.network.totalUp;
+        comparison =
+          applyTrafficMultiplier(
+            aData.network.totalUp,
+            a.traffic_multiplier,
+          ) -
+          applyTrafficMultiplier(
+            bData.network.totalUp,
+            b.traffic_multiplier,
+          );
         break;
       }
       case "totalDown": {
-        comparison = aData.network.totalDown - bData.network.totalDown;
+        comparison =
+          applyTrafficMultiplier(
+            aData.network.totalDown,
+            a.traffic_multiplier,
+          ) -
+          applyTrafficMultiplier(
+            bData.network.totalDown,
+            b.traffic_multiplier,
+          );
         break;
       }
       default:
@@ -454,10 +474,30 @@ const NodeTable: React.FC<NodeTableProps> = ({ nodes, liveData, onlineSet }) => 
                     <label>↓{formatBytes(nodeData.network.down)}/s</label>
                   </TableCell>
                   <TableCell className="text-center min-w-[80px]">
-                    <label>↑{formatBytes(nodeData.network.totalUp)}</label>
+                    <label>
+                      ↑
+                      {formatBytes(
+                        applyTrafficMultiplier(
+                          nodeData.network.totalUp,
+                          normalizeTrafficMultiplier(
+                            node.traffic_multiplier,
+                          ),
+                        ),
+                      )}
+                    </label>
                   </TableCell>
                   <TableCell className="text-center min-w-[80px]">
-                    <label>↓{formatBytes(nodeData.network.totalDown)}</label>
+                    <label>
+                      ↓
+                      {formatBytes(
+                        applyTrafficMultiplier(
+                          nodeData.network.totalDown,
+                          normalizeTrafficMultiplier(
+                            node.traffic_multiplier,
+                          ),
+                        ),
+                      )}
+                    </label>
                   </TableCell>
                 </TableRow>
 

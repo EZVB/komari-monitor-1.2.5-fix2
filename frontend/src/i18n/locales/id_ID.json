@@ -92,7 +92,9 @@
       "token": "Token",
       "tokenPlaceholder": "Masukkan token",
       "trafficLimit": "Batas Lalu Lintas",
-      "trafficLimit_description": "Digunakan untuk menampilkan progres lalu lintas di beranda. Atur ke 0 B untuk menonaktifkan.",
+      "trafficLimit_description": "Digunakan untuk progres lalu lintas di beranda. Kosongkan untuk lalu lintas tanpa batas.",
+      "trafficMultiplier": "Pengali Lalu Lintas",
+      "trafficMultiplier_description": "Diterapkan pada lalu lintas tertagih dan penggunaan ambang. Gunakan 1 untuk lalu lintas aktual.",
       "trafficLimitType": "Jenis Batas Lalu Lintas",
       "trafficLimitType_down": "Unduh Saja",
       "trafficLimitType_max": "Maksimum",
@@ -357,32 +359,6 @@
   "current_online": "Sedang online",
   "current_time": "Waktu saat ini",
   "delete": "Hapus",
-  "exec": {
-    "allCompleted": "Semua tugas telah selesai dieksekusi",
-    "command": "Perintah",
-    "commandPlaceholder": "whoami (gunakan Shift+Enter untuk baris baru)",
-    "description": "Eksekusi perintah jarak jauh pada node yang dipilih",
-    "errors": {
-      "emptyCommand": "Perintah tidak boleh kosong.",
-      "executionFailed": "Eksekusi gagal",
-      "noNodes": "Silakan pilih minimal satu node."
-    },
-    "execute": "Eksekusi Jarak Jauh",
-    "executing": "Sedang mengeksekusi",
-    "pollingTimeout": "Waktu tunggu eksekusi tugas habis",
-    "results": "Hasil eksekusi",
-    "selectedNodes": "Node terpilih",
-    "selectNodes": "Pilih node tujuan",
-    "status": {
-      "failed": "Gagal",
-      "running": "Sedang berjalan",
-      "success": "Berhasil",
-      "timeout": "Waktu habis"
-    },
-    "success": "Eksekusi perintah selesai",
-    "taskStarted": "Tugas telah dimulai.",
-    "title": "Eksekusi Jarak Jauh"
-  },
   "go_to_home": "Kembali ke Beranda",
   "home_title": "Pemantau Komari",
   "just_now": "Baru saja",

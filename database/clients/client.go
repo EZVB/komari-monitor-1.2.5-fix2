@@ -261,6 +261,23 @@ func SaveClient(updates map[string]interface{}) error {
 			}
 		}
 	}
+	if v, exists := updates["traffic_limit_type"]; exists {
+		val, ok := v.(string)
+		if !ok {
+			return fmt.Errorf("traffic_limit_type must be a string")
+		}
+		switch val {
+		case "sum", "max", "min", "up", "down":
+		default:
+			return fmt.Errorf("unsupported traffic_limit_type: %s", val)
+		}
+	}
+	if v, exists := updates["traffic_multiplier"]; exists {
+		val, ok := v.(float64)
+		if !ok || math.IsNaN(val) || math.IsInf(val, 0) || val <= 0 || val > 999999 {
+			return fmt.Errorf("traffic_multiplier must be a finite number greater than 0 and no greater than 999999")
+		}
+	}
 
 	updates["updated_at"] = time.Now()
 

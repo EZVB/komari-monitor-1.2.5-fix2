@@ -92,7 +92,9 @@
       "token": "Token 令牌",
       "tokenPlaceholder": "請輸入 Token",
       "trafficLimit": "流量閾值",
-      "trafficLimit_description": "用於首頁流量進度條，設置為 0 B 禁用。",
+      "trafficLimit_description": "用於首頁流量進度條，留空表示無限流量。",
+      "trafficMultiplier": "流量倍率",
+      "trafficMultiplier_description": "用於計費流量和流量閾值統計，1 表示按實際流量計算。",
       "trafficLimitType": "統計方式",
       "trafficLimitType_down": "僅下載",
       "trafficLimitType_max": "取最大",
@@ -357,32 +359,6 @@
   "current_online": "當前在線",
   "current_time": "當前時間",
   "delete": "刪除",
-  "exec": {
-    "allCompleted": "所有任務執行完成",
-    "command": "執行命令",
-    "commandPlaceholder": "whoami（使用 Shift+Enter 換行）",
-    "description": "在選定的節點上遠程執行命令",
-    "errors": {
-      "emptyCommand": "命令不能為空",
-      "executionFailed": "執行失敗",
-      "noNodes": "請至少選擇一個節點"
-    },
-    "execute": "執行命令",
-    "executing": "執行中...",
-    "pollingTimeout": "任務執行超時",
-    "results": "執行結果",
-    "selectedNodes": "已選擇節點",
-    "selectNodes": "選擇目標節點",
-    "status": {
-      "failed": "失敗",
-      "running": "正在運行",
-      "success": "成功",
-      "timeout": "超時"
-    },
-    "success": "命令執行完成",
-    "taskStarted": "任務已啟動",
-    "title": "遠程執行"
-  },
   "go_to_home": "回到首頁",
   "home_title": "Komari Monitor",
   "just_now": "剛剛",

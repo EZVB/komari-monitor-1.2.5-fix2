@@ -92,7 +92,9 @@
       "token": "トークン",
       "tokenPlaceholder": "トークンを入力してください",
       "trafficLimit": "トラフィック制限",
-      "trafficLimit_description": "ホームページのトラフィック進捗バーに使用され、0 Bに設定すると無効になります。",
+      "trafficLimit_description": "ホームページのトラフィック進捗バーに使用します。空欄の場合は無制限です。",
+      "trafficMultiplier": "トラフィック倍率",
+      "trafficMultiplier_description": "請求トラフィックとしきい値の計算に適用します。実トラフィックは 1 に設定します。",
       "trafficLimitType": "統計方法",
       "trafficLimitType_down": "ダウンロードのみ",
       "trafficLimitType_max": "最大値を取る",
@@ -357,32 +359,6 @@
   "current_online": "現在オンライン",
   "current_time": "現在の時間",
   "delete": "削除",
-  "exec": {
-    "allCompleted": "すべてのタスクが完了しました",
-    "command": "コマンドを実行",
-    "commandPlaceholder": "whoami（Shift+Enter で改行）",
-    "description": "選択したノードでリモートコマンドを実行",
-    "errors": {
-      "emptyCommand": "コマンドは空にできません",
-      "executionFailed": "実行に失敗しました",
-      "noNodes": "少なくとも1つのノードを選択してください"
-    },
-    "execute": "コマンドを実行",
-    "executing": "実行中...",
-    "pollingTimeout": "タスクの実行がタイムアウトしました",
-    "results": "実行結果",
-    "selectedNodes": "選択されたノード",
-    "selectNodes": "ターゲットノードを選択",
-    "status": {
-      "failed": "失敗",
-      "running": "実行中",
-      "success": "成功",
-      "timeout": "タイムアウト"
-    },
-    "success": "コマンドの実行が完了しました",
-    "taskStarted": "タスクが開始されました",
-    "title": "リモート実行"
-  },
   "go_to_home": "ホームに戻る",
   "home_title": "Komari Monitor",
   "just_now": "たった今",

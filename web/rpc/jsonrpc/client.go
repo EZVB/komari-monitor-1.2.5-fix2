@@ -16,7 +16,6 @@ import (
 func init() {
 	regClient("getPingTasks", clientGetPingTasks, "Get ping tasks assigned to the calling client")
 	regClient("uploadPingResult", clientUploadPingResult, "Upload a ping result")
-	regClient("taskResult", clientTaskResult, "Upload an exec task result")
 }
 
 func regClient(name string, h rpc.Handler, summary string) {
@@ -63,24 +62,4 @@ func clientUploadPingResult(ctx context.Context, req *rpc.JsonRpcRequest) (any, 
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to save ping result: "+err.Error(), nil)
 	}
 	return map[string]any{"status": "success"}, nil
-}
-
-func clientTaskResult(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	uuid := callingClientUUID(ctx)
-	if uuid == "" {
-		return nil, rpc.MakeError(rpc.InvalidParams, "Invalid or missing token", nil)
-	}
-	var params struct {
-		TaskId     string    `json:"task_id"`
-		Result     string    `json:"result"`
-		ExitCode   int       `json:"exit_code"`
-		FinishedAt time.Time `json:"finished_at"`
-	}
-	if err := req.BindParams(&params); err != nil {
-		return nil, rpc.MakeError(rpc.InvalidParams, "Invalid request", nil)
-	}
-	if err := tasks.SaveTaskResult(params.TaskId, uuid, params.Result, params.ExitCode, models.FromTime(params.FinishedAt)); err != nil {
-		return nil, rpc.MakeError(rpc.InternalError, "Failed to update task result: "+err.Error(), nil)
-	}
-	return map[string]any{"status": "success", "message": "Task result updated successfully"}, nil
 }

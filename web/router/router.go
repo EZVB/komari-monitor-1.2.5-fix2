@@ -72,7 +72,6 @@ func registerAgentRoutes(r *gin.Engine) {
 		tokenAuthorized.GET("/terminal", terminal.EstablishConnection)
 
 		// JSON 接口 -> RPC2 (client: 命名空间)。
-		tokenAuthorized.POST("/task/result", jsonRpc.Bind("client:taskResult", jsonRpc.WithRaw()))
 		tokenAuthorized.GET("/ping/tasks", jsonRpc.Bind("client:getPingTasks", jsonRpc.WithRaw()))
 		tokenAuthorized.POST("/ping/result", jsonRpc.Bind("client:uploadPingResult", jsonRpc.WithRaw()))
 	}
@@ -121,17 +120,6 @@ func registerAdminRoutes(r *gin.Engine) {
 
 	// --- 以下全部 JSON -> RPC2 ---
 
-	// tasks（远程执行）
-	task := g.Group("/task")
-	{
-		task.GET("/all", jsonRpc.Bind("admin:getTasks"))
-		task.POST("/exec", api.RequireSensitive2FA(), jsonRpc.Bind("admin:exec"))
-		task.GET("/:task_id", jsonRpc.Bind("admin:getTaskById", jsonRpc.WithPath("task_id")))
-		task.GET("/:task_id/result", jsonRpc.Bind("admin:getTaskResultsByTaskId", jsonRpc.WithPath("task_id")))
-		task.GET("/:task_id/result/:uuid", jsonRpc.Bind("admin:getSpecificTaskResult", jsonRpc.WithPath("task_id", "uuid")))
-		task.GET("/client/:uuid", jsonRpc.Bind("admin:getTasksByClientId", jsonRpc.WithPath("uuid")))
-	}
-
 	// settings
 	settings := g.Group("/settings")
 	{
@@ -155,7 +143,6 @@ func registerAdminRoutes(r *gin.Engine) {
 		databaseGroup.GET("/size", jsonRpc.Bind("admin:getDatabaseSize"))
 		databaseGroup.POST("/vacuum", jsonRpc.Bind("admin:vacuumDatabase", jsonRpc.WithMessage("database vacuumed")))
 	}
-
 
 	// clients
 	clientGroup := g.Group("/client")

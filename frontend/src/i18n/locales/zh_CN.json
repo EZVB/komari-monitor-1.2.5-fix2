@@ -92,7 +92,9 @@
       "token": "Token 令牌",
       "tokenPlaceholder": "请输入 Token",
       "trafficLimit": "流量阈值",
-      "trafficLimit_description": "用于首页流量进度条，设置为 0 B 禁用。",
+      "trafficLimit_description": "用于首页流量进度条，留空表示无限流量。",
+      "trafficMultiplier": "流量倍率",
+      "trafficMultiplier_description": "用于计费流量和流量阈值统计，1 表示按实际流量计算。",
       "trafficLimitType": "统计方式",
       "trafficLimitType_down": "仅下载",
       "trafficLimitType_max": "取最大",
@@ -371,32 +373,6 @@
     "title": "监控数据库恢复"
   },
   "delete": "删除",
-  "exec": {
-    "allCompleted": "所有任务执行完成",
-    "command": "执行命令",
-    "commandPlaceholder": "whoami（使用 Shift+Enter 换行）",
-    "description": "在选定的节点上远程执行命令",
-    "errors": {
-      "emptyCommand": "命令不能为空",
-      "executionFailed": "执行失败",
-      "noNodes": "请选择至少一个节点"
-    },
-    "execute": "执行命令",
-    "executing": "执行中...",
-    "pollingTimeout": "任务执行超时",
-    "results": "执行结果",
-    "selectedNodes": "已选择节点",
-    "selectNodes": "选择目标节点",
-    "status": {
-      "failed": "失败",
-      "running": "正在运行",
-      "success": "成功",
-      "timeout": "超时"
-    },
-    "success": "命令执行完成",
-    "taskStarted": "任务已启动",
-    "title": "远程执行"
-  },
   "go_to_home": "回到主页",
   "home_title": "Komari Monitor",
   "install": {

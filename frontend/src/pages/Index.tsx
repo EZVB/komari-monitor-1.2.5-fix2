@@ -17,6 +17,7 @@ import Loading from "@/components/loading";
 import { Settings } from "lucide-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import type { LiveData } from "@/types/LiveData";
+import { applyTrafficMultiplier } from "@/utils/trafficHelper";
 
 // Intelligent speed formatting function
 const formatSpeed = (bytes: number): string => {
@@ -73,8 +74,14 @@ const Index = () => {
       const record = liveData.data[node.uuid];
       if (!record) continue;
 
-      totalUp += record.network.totalUp || 0;
-      totalDown += record.network.totalDown || 0;
+      totalUp += applyTrafficMultiplier(
+        record.network.totalUp || 0,
+        node.traffic_multiplier,
+      );
+      totalDown += applyTrafficMultiplier(
+        record.network.totalDown || 0,
+        node.traffic_multiplier,
+      );
       speedUp += record.network.up || 0;
       speedDown += record.network.down || 0;
     }

@@ -62,7 +62,10 @@ func CheckTraffic() {
 		}
 
 		// 计算不同类型的使用值
-		used := computeUsedByType(strings.ToLower(c.TrafficLimitType), r.Network.TotalUp, r.Network.TotalDown)
+		used := applyTrafficMultiplier(
+			computeUsedByType(strings.ToLower(c.TrafficLimitType), r.Network.TotalUp, r.Network.TotalDown),
+			c.TrafficMultiplier,
+		)
 		if used <= 0 {
 			continue
 		}
@@ -113,20 +116,42 @@ func computeUsedByType(t string, up, down int64) int64 {
 	case "down":
 		return down
 	case "sum":
-		return up + down
+		return sumTraffic(up, down)
 	case "min":
 		if up < down {
 			return up
 		}
 		return down
 	case "max":
-		fallthrough
-	default:
 		if up > down {
 			return up
 		}
 		return down
+	default:
+		return sumTraffic(up, down)
 	}
+}
+
+func sumTraffic(up, down int64) int64 {
+	if up > 0 && down > math.MaxInt64-up {
+		return math.MaxInt64
+	}
+	return up + down
+}
+
+func applyTrafficMultiplier(used int64, multiplier float64) int64 {
+	if multiplier <= 0 || math.IsNaN(multiplier) || math.IsInf(multiplier, 0) {
+		multiplier = 1
+	}
+
+	weighted := float64(used) * multiplier
+	if weighted >= float64(math.MaxInt64) {
+		return math.MaxInt64
+	}
+	if weighted <= 0 {
+		return 0
+	}
+	return int64(math.Round(weighted))
 }
 
 func humanBytes(b int64) string {

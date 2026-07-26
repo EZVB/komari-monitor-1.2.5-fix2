@@ -9,6 +9,7 @@ import { formatUptime } from "./Node";
 import { formatBytes } from "@/utils/unitHelper";
 import { Flex, Text, Card } from "@radix-ui/themes";
 import type { Record as LiveRecord } from "@/types/LiveData";
+import { applyTrafficMultiplier } from "@/utils/trafficHelper";
 
 type DetailsGridProps = {
   uuid: string;
@@ -82,11 +83,17 @@ export const DetailsGrid = ({
           className="flex-[0_0_calc(50%-0.5rem)]"
             down={`↑
           ${formatBytes(
-              currentRecord?.network.totalUp || 0
+              applyTrafficMultiplier(
+                currentRecord?.network.totalUp || 0,
+                node?.traffic_multiplier,
+              )
             )}
           ↓
           ${formatBytes(
-              currentRecord?.network.totalDown || 0
+              applyTrafficMultiplier(
+                currentRecord?.network.totalDown || 0,
+                node?.traffic_multiplier,
+              )
             )}`}
         />
         <UpDownStack

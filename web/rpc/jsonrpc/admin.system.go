@@ -2,32 +2,25 @@ package jsonrpc
 
 import (
 	"context"
-	"encoding/json"
 	"net"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/komari-monitor/komari/cmd/flags"
 	"github.com/komari-monitor/komari/database/accounts"
 	"github.com/komari-monitor/komari/database/auditlog"
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
-	"github.com/komari-monitor/komari/database/tasks"
 	"github.com/komari-monitor/komari/pkg/config"
 	"github.com/komari-monitor/komari/pkg/rpc"
-	v2 "github.com/komari-monitor/komari/protocol/v2"
-	"github.com/komari-monitor/komari/utils"
 	"github.com/komari-monitor/komari/utils/cloudflared"
 	"github.com/komari-monitor/komari/utils/geoip"
 	"github.com/komari-monitor/komari/utils/messageSender"
-	agent_runtime "github.com/komari-monitor/komari/web/agent"
 )
 
 // admin.system.go
-// 系统/运维类 RPC2 方法（admin 命名空间）：日志、cloudflared、远程执行、测试。
+// 系统/运维类 RPC2 方法（admin 命名空间）：日志、cloudflared、测试。
 
 const cloudflaredStopConfirmText = "STOP CLOUDFLARED"
 
@@ -37,14 +30,11 @@ func init() {
 	reg("startCloudflared", adminStartCloudflared, "Start cloudflared tunnel")
 	reg("stopCloudflared", adminStopCloudflared, "Stop cloudflared tunnel")
 	reg("removeCloudflaredToken", adminRemoveCloudflaredToken, "Remove cloudflared token")
-	reg("exec", adminExec, "Execute a command on clients")
 	reg("testSendMessage", adminTestSendMessage, "Send a test notification")
 	reg("testGeoip", adminTestGeoip, "Test GeoIP lookup")
 	reg("getDatabaseSize", adminGetDatabaseSize, "Get the database file size on disk")
 	reg("vacuumDatabase", adminVacuumDatabase, "Vacuum (compact) the SQLite database to reclaim disk space")
 
-	// 远程命令执行属敏感操作：除 admin 角色外，还需通过敏感操作二次验证。
-	rpc.MarkSensitive("admin:exec")
 }
 
 // databaseFileSize 统计 SQLite 数据库文件及其 WAL/SHM 附属文件占用的磁盘大小。
@@ -95,7 +85,6 @@ func adminVacuumDatabase(ctx context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.
 		"size":   after,
 	}, nil
 }
-
 
 func adminGetLogs(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
 	var params struct {
@@ -195,73 +184,6 @@ func adminRemoveCloudflaredToken(ctx context.Context, _ *rpc.JsonRpcRequest) (an
 	actor, ip := auditActor(ctx)
 	auditlog.Log(ip, actor, "removed cloudflared tunnel token", "warn")
 	return cloudflared.Status(), nil
-}
-
-func adminExec(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	var params struct {
-		Command string   `json:"command"`
-		Clients []string `json:"clients"`
-	}
-	req.BindParams(&params)
-	if strings.TrimSpace(params.Command) == "" {
-		return nil, rpc.MakeError(rpc.InvalidParams, "Command cannot be empty", nil)
-	}
-	if len(params.Clients) == 0 {
-		return nil, rpc.MakeError(rpc.InvalidParams, "clients is required", nil)
-	}
-
-	var onlineClients, queuedClients, offlineClients []string
-	for _, uuid := range params.Clients {
-		if client := agent_runtime.GetConnectedClients()[uuid]; client != nil {
-			onlineClients = append(onlineClients, uuid)
-		} else if agent_runtime.IsAgentOnline(uuid) {
-			queuedClients = append(queuedClients, uuid)
-		} else {
-			offlineClients = append(offlineClients, uuid)
-		}
-	}
-	if len(onlineClients) == 0 && len(queuedClients) == 0 {
-		return nil, rpc.MakeError(rpc.InvalidParams, "No clients connected", nil)
-	}
-	taskId := utils.GenerateRandomString(16)
-	taskClients := append(append([]string{}, onlineClients...), queuedClients...)
-	taskClients = append(taskClients, offlineClients...)
-	if err := tasks.CreateTask(taskId, taskClients, params.Command); err != nil {
-		return nil, rpc.MakeError(rpc.InternalError, "Failed to create task: "+err.Error(), nil)
-	}
-	for _, uuid := range onlineClients {
-		legacy := struct {
-			Message string `json:"message"`
-			Command string `json:"command"`
-			TaskId  string `json:"task_id"`
-		}{Message: "exec", Command: params.Command, TaskId: taskId}
-		payload, _ := json.Marshal(legacy)
-		if agent_runtime.IsV2Client(uuid) {
-			payload, _ = json.Marshal(v2.Request{JSONRPC: v2.Version, Method: v2.MethodAgentExec, Params: v2.ExecParams{TaskID: taskId, Command: params.Command}})
-		}
-		client := agent_runtime.GetConnectedClients()[uuid]
-		if client == nil {
-			return nil, rpc.MakeError(rpc.InvalidParams, "Client connection is null: "+uuid, nil)
-		}
-		if err := client.WriteMessage(websocket.TextMessage, payload); err != nil {
-			return nil, rpc.MakeError(rpc.InvalidParams, "Client connection is broke: "+uuid, nil)
-		}
-	}
-	for _, uuid := range queuedClients {
-		agent_runtime.DispatchV2Event(uuid, v2.MethodAgentExec, v2.ExecParams{TaskID: taskId, Command: params.Command})
-	}
-	actor, ip := auditActor(ctx)
-	auditlog.Log(ip, actor, "REC, task id: "+taskId, "warn")
-	if len(offlineClients) > 0 {
-		for _, uuid := range offlineClients {
-			tasks.SaveTaskResult(taskId, uuid, "Client offline!", -1, models.FromTime(time.Now()))
-		}
-	}
-	return map[string]any{
-		"task_id":        taskId,
-		"clients":        onlineClients,
-		"queued_clients": queuedClients,
-	}, nil
 }
 
 func adminTestSendMessage(_ context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {

@@ -23,6 +23,9 @@ export type NodeDetail = {
   public_remark: string;
   group: string | undefined;
   billing_cycle: number;
+  traffic_limit: number;
+  traffic_limit_type: "sum" | "max" | "min" | "up" | "down";
+  traffic_multiplier: number;
   expired_at: string;
   created_at: string;
   updated_at: string;
