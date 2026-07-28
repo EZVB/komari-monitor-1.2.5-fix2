@@ -56,16 +56,12 @@ func CheckTraffic() {
 			continue
 		}
 
-		r, ok := reports[c.UUID]
-		if !ok || r == nil {
+		_, ok := reports[c.UUID]
+		if !ok {
 			continue
 		}
+		used := c.TrafficUsed
 
-		// 计算不同类型的使用值
-		used := applyTrafficMultiplier(
-			computeUsedByType(strings.ToLower(c.TrafficLimitType), r.Network.TotalUp, r.Network.TotalDown),
-			c.TrafficMultiplier,
-		)
 		if used <= 0 {
 			continue
 		}

@@ -206,6 +206,7 @@ const Node = React.memo(
                   basic.traffic_limit,
                   basic.traffic_limit_type ?? "sum",
                   trafficMultiplier,
+                  liveData.trafficUsed,
                 )}
                 max={Infinity}
               />
@@ -267,6 +268,7 @@ const Node = React.memo(
                 basic.traffic_limit,
                 basic.traffic_limit_type ?? "sum",
                 trafficMultiplier,
+                liveData.trafficUsed,
               )}
             />
           )}
@@ -374,10 +376,11 @@ function getTrafficPercentage(
   limit: number,
   type: "max" | "min" | "sum" | "up" | "down",
   multiplier = 1,
+  accountedUsage?: number,
 ) {
   if (limit === 0) return 0;
-  return (
-    (getTrafficUsage(totalUp, totalDown, type, multiplier) / limit) *
-    100
-  );
+  const used =
+    accountedUsage ??
+    getTrafficUsage(totalUp, totalDown, type, multiplier);
+  return (used / limit) * 100;
 }

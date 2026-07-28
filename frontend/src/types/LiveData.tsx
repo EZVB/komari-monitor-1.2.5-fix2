@@ -27,6 +27,8 @@ export type Record = {
     totalUp: number;
     totalDown: number;
   };
+  trafficUsed?: number;
+  trafficCycleStart?: string;
   connections: {
     tcp: number;
     udp: number;

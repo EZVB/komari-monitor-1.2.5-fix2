@@ -38,6 +38,8 @@ func TestClientTrafficDefaults(t *testing.T) {
 	tests := map[string]string{
 		"TrafficLimitType":  "default:'sum'",
 		"TrafficMultiplier": "default:1",
+		"TrafficResetDay":   "default:0",
+		"TrafficInitial":    "default:0",
 	}
 
 	for fieldName, expected := range tests {

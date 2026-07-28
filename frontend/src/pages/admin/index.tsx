@@ -2180,6 +2180,13 @@ function EditButton({ node }: { node: NodeDetail }) {
   const [traffic_limit_type, setTrafficLimitType] = useState("sum");
   const [trafficLimitInput, setTrafficLimitInput] = useState("");
   const [trafficMultiplierInput, setTrafficMultiplierInput] = useState("1");
+  const [trafficResetDayInput, setTrafficResetDayInput] = useState("");
+  const [trafficInitialInput, setTrafficInitialInput] = useState("");
+  const fallbackTrafficResetDay = React.useMemo(() => {
+    if (!node.expired_at) return 1;
+    const expiredAt = new Date(node.expired_at);
+    return Number.isNaN(expiredAt.getTime()) ? 1 : expiredAt.getDate();
+  }, [node.expired_at]);
 
   React.useEffect(() => {
     setHidden(node.hidden);
@@ -2190,48 +2197,95 @@ function EditButton({ node }: { node: NodeDetail }) {
     setTrafficMultiplierInput(
       String(normalizeTrafficMultiplier(node.traffic_multiplier))
     );
+    setTrafficResetDayInput(
+      node.traffic_reset_day > 0 ? String(node.traffic_reset_day) : ""
+    );
   }, [
     node.hidden,
     node.traffic_limit,
     node.traffic_limit_type,
     node.traffic_multiplier,
+    node.traffic_reset_day,
   ]);
+
+  React.useEffect(() => {
+    setTrafficInitialInput("");
+  }, [node.uuid]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setTrafficInitialInput("");
+    }
+  };
 
   const save = async () => {
     try {
       setSaving(true);
-      await fetch(`/api/admin/client/${node.uuid}/edit`, {
+      const hasResetDay = trafficResetDayInput.trim() !== "";
+      const resetDay = hasResetDay ? Number(trafficResetDayInput) : 0;
+      if (
+        hasResetDay &&
+        (!Number.isInteger(resetDay) || resetDay < 1 || resetDay > 31)
+      ) {
+        throw new Error(
+          t(
+            "admin.nodeEdit.trafficResetDay_invalid",
+            "流量重置日必须为 1 至 31 的整数"
+          )
+        );
+      }
+      const update: Record<string, unknown> = {
+        name: nameRef.current?.value,
+        remark: privateRemarkRef.current?.value,
+        public_remark: publicRemarkRef.current?.value,
+        group: groupRef.current?.value,
+        tags: tagsRef.current?.value,
+        hidden,
+        traffic_limit: trafficLimitInput.trim()
+          ? stringToBytes(trafficLimitInput)
+          : 0,
+        traffic_limit_type,
+        traffic_multiplier: normalizeTrafficMultiplier(
+          trafficMultiplierInput
+        ),
+        traffic_reset_day: resetDay,
+      };
+      if (trafficInitialInput.trim() !== "") {
+        const initialGB = Number(trafficInitialInput);
+        if (!Number.isFinite(initialGB) || initialGB < 0) {
+          throw new Error(
+            t(
+              "admin.nodeEdit.trafficInitial_invalid",
+              "已用流量必须为大于或等于 0 的数字"
+            )
+          );
+        }
+        update.traffic_initial = Math.round(initialGB * 1024 ** 3);
+      }
+      const response = await fetch(`/api/admin/client/${node.uuid}/edit`, {
         method: "POST",
-        body: JSON.stringify({
-          name: nameRef.current?.value,
-          remark: privateRemarkRef.current?.value,
-          public_remark: publicRemarkRef.current?.value,
-          group: groupRef.current?.value,
-          tags: tagsRef.current?.value,
-          hidden,
-          traffic_limit: trafficLimitInput.trim()
-            ? stringToBytes(trafficLimitInput)
-            : 0,
-          traffic_limit_type,
-          traffic_multiplier: normalizeTrafficMultiplier(
-            trafficMultiplierInput
-          ),
-        }),
+        body: JSON.stringify(update),
         headers: {
           "Content-Type": "application/json",
         },
       });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
       refresh();
+      setTrafficInitialInput("");
       setOpen(false);
       toast.success(t("admin.nodeEdit.saveSuccess", "保存成功"));
     } catch (error) {
       console.error("Error updating client:", error);
+      toast.error(error instanceof Error ? error.message : String(error));
     } finally {
       setSaving(false);
     }
   };
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Trigger>
         <IconButton
           variant="ghost"
@@ -2387,6 +2441,41 @@ function EditButton({ node }: { node: NodeDetail }) {
                 );
               }}
             ></SettingCardShortTextInput>
+            <SettingCardShortTextInput
+              bordless
+              title={t("admin.nodeEdit.trafficResetDay")}
+              description={t(
+                "admin.nodeEdit.trafficResetDay_description"
+              )}
+              type="number"
+              min="1"
+              max="31"
+              step="1"
+              value={trafficResetDayInput}
+              placeholder={String(fallbackTrafficResetDay)}
+              showSaveButton={false}
+              onChange={(e) => {
+                setTrafficResetDayInput(e.currentTarget.value);
+              }}
+            />
+            <SettingCardShortTextInput
+              bordless
+              title={t("admin.nodeEdit.trafficInitial")}
+              description={t(
+                "admin.nodeEdit.trafficInitial_description"
+              )}
+              type="number"
+              min="0"
+              step="0.01"
+              value={trafficInitialInput}
+              placeholder={`${t(
+                "admin.nodeEdit.trafficInitial_current"
+              )} ${formatBytes(node.traffic_used ?? 0)}`}
+              showSaveButton={false}
+              onChange={(e) => {
+                setTrafficInitialInput(e.currentTarget.value);
+              }}
+            />
           </SettingCardCollapse>
         </div>
         <Flex gap="2" justify={"end"} className="mt-4">

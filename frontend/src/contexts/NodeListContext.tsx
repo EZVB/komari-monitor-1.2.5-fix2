@@ -46,6 +46,11 @@ export type NodeBasicInfo = {
   /** 流量阈值类型 */
   traffic_limit_type: undefined | "sum" | "max" | "min" | "up" | "down";
   traffic_multiplier: number;
+  traffic_reset_day: number;
+  traffic_initial: number;
+  traffic_initial_at: string | null;
+  traffic_used: number;
+  traffic_cycle_start: string | null;
   /** 过期时间 */
   expired_at: string;
   /** 创建时间 */
@@ -135,6 +140,11 @@ export const NodeListProvider: React.FC<{ children: React.ReactNode }> = ({
           traffic_limit: n.traffic_limit ?? 0,
           traffic_limit_type: n.traffic_limit_type,
           traffic_multiplier: n.traffic_multiplier ?? 1,
+          traffic_reset_day: n.traffic_reset_day ?? 0,
+          traffic_initial: n.traffic_initial ?? 0,
+          traffic_initial_at: n.traffic_initial_at ?? null,
+          traffic_used: n.traffic_used ?? 0,
+          traffic_cycle_start: n.traffic_cycle_start ?? null,
           expired_at: n.expired_at ?? "",
           created_at: n.created_at ?? "",
           updated_at: n.updated_at ?? "",

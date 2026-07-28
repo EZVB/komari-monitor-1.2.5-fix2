@@ -26,6 +26,11 @@ export type NodeDetail = {
   traffic_limit: number;
   traffic_limit_type: "sum" | "max" | "min" | "up" | "down";
   traffic_multiplier: number;
+  traffic_reset_day: number;
+  traffic_initial: number;
+  traffic_initial_at: string | null;
+  traffic_used: number;
+  traffic_cycle_start: string | null;
   expired_at: string;
   created_at: string;
   updated_at: string;

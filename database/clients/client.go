@@ -10,6 +10,7 @@ import (
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
 	"github.com/komari-monitor/komari/database/tasks"
+	"github.com/komari-monitor/komari/database/trafficstats"
 	"github.com/komari-monitor/komari/utils"
 	"gorm.io/gorm"
 
@@ -22,6 +23,7 @@ func DeleteClient(clientUuid string) error {
 	if err != nil {
 		return err
 	}
+	trafficstats.Invalidate(clientUuid)
 	return nil
 }
 
@@ -207,6 +209,7 @@ func GetClientByUUID(uuid string) (client models.Client, err error) {
 	if err != nil {
 		return models.Client{}, err
 	}
+	populateCurrentTraffic(&client)
 	return client, nil
 }
 
@@ -220,6 +223,7 @@ func GetClientBasicInfo(uuid string) (client models.Client, err error) {
 		}
 		return models.Client{}, err
 	}
+	populateCurrentTraffic(&client)
 	return client, nil
 }
 
@@ -239,7 +243,24 @@ func GetAllClientBasicInfo() (clients []models.Client, err error) {
 	if err != nil {
 		return nil, err
 	}
+	for index := range clients {
+		populateCurrentTraffic(&clients[index])
+	}
 	return clients, nil
+}
+
+func populateCurrentTraffic(client *models.Client) {
+	if client == nil || client.UUID == "" {
+		return
+	}
+	usage, err := trafficstats.Current(*client, time.Now())
+	if err != nil {
+		return
+	}
+	client.TrafficUp = usage.Up
+	client.TrafficDown = usage.Down
+	client.TrafficUsed = usage.Used
+	client.TrafficCycleStart = models.FromTime(usage.CycleStart)
 }
 
 func SaveClient(updates map[string]interface{}) error {
@@ -278,6 +299,23 @@ func SaveClient(updates map[string]interface{}) error {
 			return fmt.Errorf("traffic_multiplier must be a finite number greater than 0 and no greater than 999999")
 		}
 	}
+	if v, exists := updates["traffic_reset_day"]; exists {
+		val, ok := numericFloat64(v)
+		if !ok || math.Trunc(val) != val || val < 0 || val > 31 {
+			return fmt.Errorf("traffic_reset_day must be an integer between 0 and 31")
+		}
+		updates["traffic_reset_day"] = int(val)
+	}
+	if v, exists := updates["traffic_initial"]; exists {
+		val, ok := numericFloat64(v)
+		if !ok || math.Trunc(val) != val || val < 0 || val >= float64(math.MaxInt64) {
+			return fmt.Errorf("traffic_initial must be a valid non-negative int64 value")
+		}
+		updates["traffic_initial"] = int64(val)
+		updates["traffic_initial_at"] = models.Now()
+	} else {
+		delete(updates, "traffic_initial_at")
+	}
 
 	updates["updated_at"] = time.Now()
 
@@ -285,5 +323,24 @@ func SaveClient(updates map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
+	trafficstats.Invalidate(clientUUID)
 	return nil
+}
+
+func numericFloat64(value interface{}) (float64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case float32:
+		return float64(typed), true
+	case int:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	case json.Number:
+		parsed, err := typed.Float64()
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
 }
