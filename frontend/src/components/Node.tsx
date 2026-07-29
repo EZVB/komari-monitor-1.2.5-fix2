@@ -16,6 +16,7 @@ import Tips from "./ui/tips";
 import { formatBytes } from "@/utils/unitHelper";
 import {
   applyTrafficMultiplier,
+  getTrafficMultiplierFactor,
   getTrafficUsage,
   normalizeTrafficMultiplier,
 } from "@/utils/trafficHelper";
@@ -219,7 +220,9 @@ const Node = React.memo(
                     basic.traffic_limit_type.charAt(0).toUpperCase() +
                       basic.traffic_limit_type.slice(1)}
                   ({formatBytes(basic.traffic_limit)})
-                  {trafficMultiplier !== 1 ? ` ×${trafficMultiplier}` : ""}
+                  {trafficMultiplier > 0
+                    ? ` ×${getTrafficMultiplierFactor(trafficMultiplier)}`
+                    : ""}
                 </Text>
               </Flex>
             </Flex>

@@ -239,10 +239,10 @@ func computeUsedByType(trafficType string, up, down int64) int64 {
 }
 
 func applyTrafficMultiplier(used int64, multiplier float64) int64 {
-	if multiplier <= 0 || math.IsNaN(multiplier) || math.IsInf(multiplier, 0) {
-		multiplier = 1
+	if multiplier < 0 || math.IsNaN(multiplier) || math.IsInf(multiplier, 0) {
+		multiplier = 0
 	}
-	weighted := float64(used) * multiplier
+	weighted := float64(used) * (1 + multiplier)
 	if weighted >= float64(math.MaxInt64) {
 		return math.MaxInt64
 	}

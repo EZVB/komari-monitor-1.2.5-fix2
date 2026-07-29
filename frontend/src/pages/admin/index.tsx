@@ -2179,7 +2179,7 @@ function EditButton({ node }: { node: NodeDetail }) {
   const [saving, setSaving] = useState(false);
   const [traffic_limit_type, setTrafficLimitType] = useState("sum");
   const [trafficLimitInput, setTrafficLimitInput] = useState("");
-  const [trafficMultiplierInput, setTrafficMultiplierInput] = useState("1");
+  const [trafficMultiplierInput, setTrafficMultiplierInput] = useState("");
   const [trafficResetDayInput, setTrafficResetDayInput] = useState("");
   const [trafficInitialInput, setTrafficInitialInput] = useState("");
   const fallbackTrafficResetDay = React.useMemo(() => {
@@ -2194,8 +2194,11 @@ function EditButton({ node }: { node: NodeDetail }) {
     setTrafficLimitInput(
       node.traffic_limit > 0 ? formatBytes(node.traffic_limit) : ""
     );
+    const trafficMultiplier = normalizeTrafficMultiplier(
+      node.traffic_multiplier
+    );
     setTrafficMultiplierInput(
-      String(normalizeTrafficMultiplier(node.traffic_multiplier))
+      trafficMultiplier > 0 ? String(trafficMultiplier) : ""
     );
     setTrafficResetDayInput(
       node.traffic_reset_day > 0 ? String(node.traffic_reset_day) : ""
@@ -2411,7 +2414,7 @@ function EditButton({ node }: { node: NodeDetail }) {
                 "admin.nodeEdit.trafficMultiplier_description"
               )}
               type="number"
-              min="0.0001"
+              min="0"
               step="0.1"
               value={trafficMultiplierInput}
               showSaveButton={false}
@@ -2419,8 +2422,9 @@ function EditButton({ node }: { node: NodeDetail }) {
                 setTrafficMultiplierInput(e.currentTarget.value);
               }}
               onBlur={() => {
+                const value = trafficMultiplierInput.trim();
                 setTrafficMultiplierInput(
-                  String(normalizeTrafficMultiplier(trafficMultiplierInput))
+                  value ? String(normalizeTrafficMultiplier(value)) : ""
                 );
               }}
             />

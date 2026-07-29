@@ -74,7 +74,7 @@ func TestCurrentWithDBUsesManualStartingTraffic(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(35), usage.Up)
 	assert.Equal(t, int64(57), usage.Down)
-	assert.Equal(t, int64(124), usage.Used)
+	assert.Equal(t, int64(136), usage.Used)
 	assert.Equal(t, 20, usage.ResetDay)
 	assert.Equal(t, cycleStart, usage.CycleStart)
 }
@@ -125,7 +125,15 @@ func TestCurrentWithDBIgnoresManualStartFromPreviousCycle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(10), usage.Up)
 	assert.Equal(t, int64(20), usage.Down)
-	assert.Equal(t, int64(45), usage.Used)
+	assert.Equal(t, int64(75), usage.Used)
+}
+
+func TestApplyTrafficMultiplierUsesAdditionalMultiples(t *testing.T) {
+	assert.Equal(t, int64(100), applyTrafficMultiplier(100, 0))
+	assert.Equal(t, int64(100), applyTrafficMultiplier(100, -1))
+	assert.Equal(t, int64(200), applyTrafficMultiplier(100, 1))
+	assert.Equal(t, int64(300), applyTrafficMultiplier(100, 2))
+	assert.Equal(t, int64(250), applyTrafficMultiplier(100, 1.5))
 }
 
 func newTrafficStatsTestDB(t *testing.T) *gorm.DB {

@@ -94,7 +94,7 @@
       "trafficLimit": "流量阈值",
       "trafficLimit_description": "用于首页流量进度条，留空表示无限流量。",
       "trafficMultiplier": "流量倍率",
-      "trafficMultiplier_description": "用于计费流量和流量阈值统计，1 表示按实际流量计算。",
+      "trafficMultiplier_description": "用于计费流量和流量阈值统计；0 或留空按实际流量计算，1 表示额外计算 1 倍（实际 1 GB 统计为 2 GB），以此类推。",
       "trafficResetDay": "流量重置日",
       "trafficResetDay_description": "设置服务器每月实际重置流量的日期（1-31）。留空时使用到期日期中的日，无到期日期时按每月 1 日重置。",
       "trafficResetDay_invalid": "流量重置日必须为 1 至 31 的整数",

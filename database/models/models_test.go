@@ -37,7 +37,7 @@ func TestClientTrafficDefaults(t *testing.T) {
 	clientType := reflect.TypeOf(Client{})
 	tests := map[string]string{
 		"TrafficLimitType":  "default:'sum'",
-		"TrafficMultiplier": "default:1",
+		"TrafficMultiplier": "default:0",
 		"TrafficResetDay":   "default:0",
 		"TrafficInitial":    "default:0",
 	}

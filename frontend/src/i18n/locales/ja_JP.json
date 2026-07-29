@@ -94,7 +94,7 @@
       "trafficLimit": "トラフィック制限",
       "trafficLimit_description": "ホームページのトラフィック進捗バーに使用します。空欄の場合は無制限です。",
       "trafficMultiplier": "トラフィック倍率",
-      "trafficMultiplier_description": "請求トラフィックとしきい値の計算に適用します。実トラフィックは 1 に設定します。",
+      "trafficMultiplier_description": "請求トラフィックとしきい値の計算に適用します。0 または空欄は実トラフィック、1 は 1 倍分を追加（1 GB を 2 GB として集計）し、以降も同様です。",
       "trafficResetDay": "トラフィックリセット日",
       "trafficResetDay_description": "サーバーの実際の月次リセット日（1-31）を設定します。空欄の場合は有効期限の日を使用し、有効期限がない場合は毎月 1 日です。",
       "trafficResetDay_invalid": "リセット日は 1 から 31 の整数で入力してください。",

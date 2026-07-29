@@ -39,7 +39,7 @@ type Client struct {
 	Hidden            bool      `json:"hidden" gorm:"default:false"`
 	TrafficLimit      int64     `json:"traffic_limit" gorm:"type:bigint"`
 	TrafficLimitType  string    `json:"traffic_limit_type" gorm:"type:varchar(10);default:'sum'"` // 流量阈值类型：sum max min up down
-	TrafficMultiplier float64   `json:"traffic_multiplier" gorm:"type:decimal(10,4);default:1"`
+	TrafficMultiplier float64   `json:"traffic_multiplier" gorm:"type:decimal(10,4);default:0"`
 	TrafficResetDay   int       `json:"traffic_reset_day" gorm:"type:int;default:0"`
 	TrafficInitial    int64     `json:"traffic_initial" gorm:"type:bigint;default:0"`
 	TrafficInitialAt  LocalTime `json:"traffic_initial_at" gorm:"type:timestamp"`

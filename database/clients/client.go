@@ -295,8 +295,8 @@ func SaveClient(updates map[string]interface{}) error {
 	}
 	if v, exists := updates["traffic_multiplier"]; exists {
 		val, ok := v.(float64)
-		if !ok || math.IsNaN(val) || math.IsInf(val, 0) || val <= 0 || val > 999999 {
-			return fmt.Errorf("traffic_multiplier must be a finite number greater than 0 and no greater than 999999")
+		if !ok || math.IsNaN(val) || math.IsInf(val, 0) || val < 0 || val > 999999 {
+			return fmt.Errorf("traffic_multiplier must be a finite number between 0 and 999999")
 		}
 	}
 	if v, exists := updates["traffic_reset_day"]; exists {

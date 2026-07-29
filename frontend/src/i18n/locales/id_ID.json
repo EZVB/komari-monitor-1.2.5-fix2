@@ -94,7 +94,7 @@
       "trafficLimit": "Batas Lalu Lintas",
       "trafficLimit_description": "Digunakan untuk progres lalu lintas di beranda. Kosongkan untuk lalu lintas tanpa batas.",
       "trafficMultiplier": "Pengali Lalu Lintas",
-      "trafficMultiplier_description": "Diterapkan pada lalu lintas tertagih dan penggunaan ambang. Gunakan 1 untuk lalu lintas aktual.",
+      "trafficMultiplier_description": "Diterapkan pada lalu lintas tertagih dan penggunaan ambang. Gunakan 0 atau kosong untuk lalu lintas aktual; 1 menambahkan satu kali lalu lintas (1 GB dihitung sebagai 2 GB), dan seterusnya.",
       "trafficResetDay": "Hari Reset Lalu Lintas",
       "trafficResetDay_description": "Atur hari reset bulanan aktual server (1-31). Kosongkan untuk memakai hari kedaluwarsa, atau hari ke-1 bila tidak ada tanggal kedaluwarsa.",
       "trafficResetDay_invalid": "Hari reset harus berupa bilangan bulat dari 1 hingga 31.",
