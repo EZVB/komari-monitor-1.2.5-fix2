@@ -6,6 +6,49 @@
       "icon": "Server"
     },
     {
+      "labelKey": "common.home",
+      "path": "/",
+      "icon": "Home",
+      "newTab": true
+    },
+    {
+      "labelKey": "ping.title",
+      "path": "/admin/ping",
+      "icon": "Activity"
+    },
+    {
+      "labelKey": "sessions.title",
+      "path": "/admin/sessions",
+      "icon": "Users"
+    },
+    {
+      "labelKey": "notification.title",
+      "path": "/admin/notification",
+      "icon": "Bell",
+      "children": [
+        {
+          "labelKey": "notification.offline.title",
+          "path": "/admin/notification/offline",
+          "icon": "Unplug"
+        },
+        {
+          "labelKey": "notification.load.title",
+          "path": "/admin/notification/load",
+          "icon": "TrendingUp"
+        },
+        {
+          "labelKey": "notification.traffic_report.title",
+          "path": "/admin/notification/traffic-report",
+          "icon": "BarChart2"
+        },
+        {
+          "labelKey": "settings.general.title",
+          "path": "/admin/notification/general",
+          "icon": "Ellipsis"
+        }
+      ]
+    },
+    {
       "labelKey": "settings.title",
       "path": "/admin/settings",
       "icon": "Bolt",
@@ -48,43 +91,6 @@
       ]
     },
     {
-      "labelKey": "notification.title",
-      "path": "/admin/notification",
-      "icon": "Bell",
-      "children": [
-        {
-          "labelKey": "notification.offline.title",
-          "path": "/admin/notification/offline",
-          "icon": "Unplug"
-        },
-        {
-          "labelKey": "notification.load.title",
-          "path": "/admin/notification/load",
-          "icon": "TrendingUp"
-        },
-        {
-          "labelKey": "notification.traffic_report.title",
-          "path": "/admin/notification/traffic-report",
-          "icon": "BarChart2"
-        },
-        {
-          "labelKey": "settings.general.title",
-          "path": "/admin/notification/general",
-          "icon": "Ellipsis"
-        }
-      ]
-    },
-    {
-      "labelKey": "ping.title",
-      "path": "/admin/ping",
-      "icon": "Activity"
-    },
-    {
-      "labelKey": "sessions.title",
-      "path": "/admin/sessions",
-      "icon": "Users"
-    },
-    {
       "labelKey": "account.title",
       "path": "/admin/account",
       "icon": "UserCircle"
@@ -93,12 +99,6 @@
       "labelKey": "logs.title",
       "path": "/admin/logs",
       "icon": "FileText"
-    },
-    {
-      "labelKey": "common.home",
-      "path": "/",
-      "icon": "Home",
-      "newTab": true
     }
   ]
 }
