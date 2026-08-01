@@ -22,8 +22,12 @@ const databaseInfoSchema = z.object({
 });
 const databaseOverviewSchema = z.object({
   main: databaseInfoSchema,
-  monitoring: databaseInfoSchema,
+  monitoring: databaseInfoSchema.optional(),
   local_total: nullableSizeSchema,
+});
+const legacyDatabaseOverviewSchema = z.object({
+  type: z.string().trim().min(1),
+  size: z.number().finite().nonnegative(),
 });
 const maintenanceItemSchema = z.object({
   driver: z.string().trim().min(1),
@@ -37,13 +41,75 @@ const maintenanceItemSchema = z.object({
 const maintenanceResultSchema = z.object({
   all_succeeded: z.boolean(),
   main: maintenanceItemSchema,
-  monitoring: maintenanceItemSchema,
+  monitoring: maintenanceItemSchema.optional(),
+});
+const legacyMaintenanceResultSchema = z.object({
+  before: z.number().finite().nonnegative(),
+  after: z.number().finite().nonnegative(),
+  size: z.number().finite().nonnegative().optional(),
 });
 
 type DatabaseInfo = z.infer<typeof databaseInfoSchema>;
 type DatabaseOverview = z.infer<typeof databaseOverviewSchema>;
 type DatabaseMaintenanceResult = z.infer<typeof maintenanceResultSchema>;
 type TranslationFunction = ReturnType<typeof useTranslation>["t"];
+
+function maintenanceActionForDriver(
+  driver: string,
+): z.infer<typeof maintenanceActionSchema> {
+  switch (driver.toLowerCase()) {
+    case "mysql":
+    case "mariadb":
+      return "optimize";
+    case "postgres":
+    case "postgresql":
+      return "vacuum_full";
+    default:
+      return "vacuum";
+  }
+}
+
+function parseDatabaseOverview(value: unknown): DatabaseOverview | null {
+  const current = databaseOverviewSchema.safeParse(value);
+  if (current.success) return current.data;
+
+  const legacy = legacyDatabaseOverviewSchema.safeParse(value);
+  if (!legacy.success) return null;
+
+  const driver = legacy.data.type;
+  const local = driver.toLowerCase() === "sqlite";
+  return {
+    main: {
+      driver,
+      location: local ? "local" : "external",
+      size: local ? legacy.data.size : null,
+      action: maintenanceActionForDriver(driver),
+    },
+    local_total: local ? legacy.data.size : null,
+  };
+}
+
+function parseMaintenanceResult(
+  value: unknown,
+  overview: DatabaseOverview,
+): DatabaseMaintenanceResult | null {
+  const current = maintenanceResultSchema.safeParse(value);
+  if (current.success) return current.data;
+
+  const legacy = legacyMaintenanceResultSchema.safeParse(value);
+  if (!legacy.success) return null;
+
+  return {
+    all_succeeded: true,
+    main: {
+      driver: overview.main.driver,
+      action: overview.main.action,
+      before: legacy.data.before,
+      after: legacy.data.after,
+      success: true,
+    },
+  };
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -174,12 +240,13 @@ function maintenanceFailureDescription(
   result: DatabaseMaintenanceResult,
   t: TranslationFunction,
 ): string | undefined {
-  const failures = (
-    [
-      [t("settings.database.main"), result.main],
-      [t("settings.database.monitoring"), result.monitoring],
-    ] as const
-  )
+  const items: Array<[string, z.infer<typeof maintenanceItemSchema>]> = [
+    [t("settings.database.main"), result.main],
+  ];
+  if (result.monitoring) {
+    items.push([t("settings.database.monitoring"), result.monitoring]);
+  }
+  const failures = items
     .filter(([, item]) => !item.success)
     .map(
       ([label, item]) =>
@@ -209,12 +276,12 @@ export function DatabaseMaintenanceCard() {
         "/api/admin/database/size",
         fallbackMessage,
       );
-      const parsed = databaseOverviewSchema.safeParse(data);
-      if (!parsed.success) {
+      const parsed = parseDatabaseOverview(data);
+      if (!parsed) {
         throw new Error(t("settings.database.invalid_response"));
       }
 
-      setOverview(parsed.data);
+      setOverview(parsed);
       setLoadError(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -244,13 +311,13 @@ export function DatabaseMaintenanceCard() {
         t("settings.database.maintenance_error"),
         { method: "POST" },
       );
-      const parsed = maintenanceResultSchema.safeParse(data);
-      if (!parsed.success) {
+      const result = parseMaintenanceResult(data, overview);
+      if (!result) {
         throw new Error(t("settings.database.invalid_response"));
       }
 
-      const result = parsed.data;
-      const allItemsSucceeded = result.main.success && result.monitoring.success;
+      const allItemsSucceeded =
+        result.main.success && (result.monitoring?.success ?? true);
       if (result.all_succeeded && allItemsSucceeded) {
         toast.success(t("settings.database.maintenance_success"));
       } else {
@@ -283,10 +350,12 @@ export function DatabaseMaintenanceCard() {
               label={t("settings.database.main")}
               info={overview.main}
             />
-            <DatabaseSummaryRow
-              label={t("settings.database.monitoring")}
-              info={overview.monitoring}
-            />
+            {overview.monitoring ? (
+              <DatabaseSummaryRow
+                label={t("settings.database.monitoring")}
+                info={overview.monitoring}
+              />
+            ) : null}
             {overview.local_total !== null ? (
               <LocalDatabaseTotalRow size={overview.local_total} />
             ) : null}
@@ -343,10 +412,12 @@ export function DatabaseMaintenanceCard() {
                     label={t("settings.database.main")}
                     info={overview.main}
                   />
-                  <MaintenanceActionRow
-                    label={t("settings.database.monitoring")}
-                    info={overview.monitoring}
-                  />
+                  {overview.monitoring ? (
+                    <MaintenanceActionRow
+                      label={t("settings.database.monitoring")}
+                      info={overview.monitoring}
+                    />
+                  ) : null}
                 </Flex>
 
                 <Flex gap="3" mt="4" justify="end">
