@@ -105,7 +105,12 @@ const ThemeManaged: React.FC = () => {
 
   const payload = useMemo(() => {
     // 全量：对所有字段（非 title）输出当前值
-    const obj: Record<string, any> = {};
+    const obj: Record<string, any> =
+      themeSettings &&
+      typeof themeSettings === "object" &&
+      !Array.isArray(themeSettings)
+        ? { ...themeSettings }
+        : {};
     fields.forEach((f) => {
       if (f.type === "title" || !f.key) return;
       const current = values[f.key];
@@ -119,7 +124,7 @@ const ThemeManaged: React.FC = () => {
       }
     });
     return obj;
-  }, [fields, values]);
+  }, [fields, themeSettings, values]);
 
   const saveAll = async () => {
     if (!theme) return;
