@@ -9,11 +9,14 @@ import { VitePWA } from "vite-plugin-pwa";
 import type { Plugin, UserConfig } from "vite";
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+
+const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 function localKomariThemePlugin(): Plugin {
   const themeRequestPath = "/themes/default/komari-theme.json";
-  const localThemeFile = path.resolve(__dirname, "komari-theme.json");
+  const localThemeFile = path.resolve(configDir, "komari-theme.json");
 
   return {
     name: "local-komari-theme",
@@ -124,12 +127,12 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: [
-        { find: "@", replacement: path.resolve(__dirname, "./src") },
+        { find: "@", replacement: path.resolve(configDir, "./src") },
         // Force xterm to use the CJS build to avoid a rollup bug where `||=` in
         // xterm.mjs is incorrectly lowered to `void 0||(i={})` with an undeclared `i`,
         // causing `ReferenceError: i is not defined` at requestMode when vi sends DECRQM sequences.
         // Regex to match only the bare specifier, not subpaths like @xterm/xterm/css/xterm.css.
-        { find: /^@xterm\/xterm$/, replacement: path.resolve(__dirname, "node_modules/@xterm/xterm/lib/xterm.js") },
+        { find: /^@xterm\/xterm$/, replacement: path.resolve(configDir, "node_modules/@xterm/xterm/lib/xterm.js") },
       ],
     },
     build: {
