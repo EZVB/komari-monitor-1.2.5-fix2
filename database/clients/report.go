@@ -154,6 +154,20 @@ func ReportVerify(report v1.Report) error {
 	if err := checkInt64("Network.TotalDown", report.Network.TotalDown); err != nil {
 		return err
 	}
+	if err := checkInt64("Uptime", report.Uptime); err != nil {
+		return err
+	}
+	if report.Xray != nil {
+		if err := checkInt64("Xray.TotalUp", report.Xray.TotalUp); err != nil {
+			return err
+		}
+		if err := checkInt64("Xray.TotalDown", report.Xray.TotalDown); err != nil {
+			return err
+		}
+		if err := checkInt64("Xray.BootTime", report.Xray.BootTime); err != nil {
+			return err
+		}
+	}
 	// 拒绝所有负数Int
 	if report.Process < 0 {
 		return fmt.Errorf("Process must be non-negative: %d", report.Process)
@@ -223,10 +237,16 @@ func SaveClientReport(clientUUID string, report v1.Report) (err error) {
 		NetTotalDown:   report.Network.TotalDown,
 		TrafficUp:      0,
 		TrafficDown:    0,
+		Uptime:         report.Uptime,
 		Process:        report.Process,
 		Connections:    report.Connections.TCP,
 		ConnectionsUdp: report.Connections.UDP,
-		//Uptime:         report.Uptime,
+	}
+	if report.Xray != nil {
+		Record.XrayTotalUp = report.Xray.TotalUp
+		Record.XrayTotalDown = report.Xray.TotalDown
+		Record.XrayBootTime = report.Xray.BootTime
+		Record.XrayAvailable = true
 	}
 
 	// 使用事务确保 Record 和 ClientsInfo 一致性
@@ -236,8 +256,30 @@ func SaveClientReport(clientUUID string, report v1.Report) (err error) {
 			return fmt.Errorf("failed to load previous Record: %w", err)
 		}
 		if previous != nil {
-			Record.TrafficUp = utils.ComputeTrafficDelta(report.Network.TotalUp, previous.NetTotalUp)
-			Record.TrafficDown = utils.ComputeTrafficDelta(report.Network.TotalDown, previous.NetTotalDown)
+			systemRestarted := counterOwnerRestarted(report.Uptime, previous.Uptime)
+			Record.TrafficUp = utils.ComputeTrafficDeltaWithReset(
+				report.Network.TotalUp,
+				previous.NetTotalUp,
+				systemRestarted,
+			)
+			Record.TrafficDown = utils.ComputeTrafficDeltaWithReset(
+				report.Network.TotalDown,
+				previous.NetTotalDown,
+				systemRestarted,
+			)
+			if report.Xray != nil && previous.XrayAvailable {
+				xrayRestarted := xrayCounterRestarted(report.Xray.BootTime, previous.XrayBootTime)
+				Record.XrayTrafficUp = utils.ComputeTrafficDeltaWithReset(
+					report.Xray.TotalUp,
+					previous.XrayTotalUp,
+					xrayRestarted,
+				)
+				Record.XrayTrafficDown = utils.ComputeTrafficDeltaWithReset(
+					report.Xray.TotalDown,
+					previous.XrayTotalDown,
+					xrayRestarted,
+				)
+			}
 		}
 
 		// 保存 Record
@@ -252,6 +294,14 @@ func SaveClientReport(clientUUID string, report v1.Report) (err error) {
 	}
 
 	return nil
+}
+
+func counterOwnerRestarted(current, previous int64) bool {
+	return current > 0 && previous > 0 && current < previous
+}
+
+func xrayCounterRestarted(currentBootTime, previousBootTime int64) bool {
+	return currentBootTime > 0 && previousBootTime > 0 && currentBootTime != previousBootTime
 }
 
 /*

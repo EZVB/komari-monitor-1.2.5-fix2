@@ -21,6 +21,7 @@ import {
   TextArea,
   SegmentedControl,
   Callout,
+  RadioGroup,
 } from "@radix-ui/themes";
 import {
   CircleDollarSign,
@@ -78,6 +79,7 @@ import PriceTags from "@/components/PriceTags";
 import Loading from "@/components/loading";
 import Tips from "@/components/ui/tips";
 import {
+  SettingCard,
   SettingCardCollapse,
   SettingCardSelect,
   SettingCardShortTextInput,
@@ -318,7 +320,7 @@ const AutoDiscoverySection = ({
     if (selectedPlatform === "windows") {
       scriptFile = "install.ps1";
     }
-    let scriptUrl = `https://raw.githubusercontent.com/komari-monitor/komari-agent/refs/heads/main/${scriptFile}`;
+    let scriptUrl = `https://raw.githubusercontent.com/EZVB/komari-agent/refs/heads/main/${scriptFile}`;
     if (enableGhproxy && ghproxy) {
       scriptUrl = scriptUrl.slice(8); // 去掉 https://
       if (ghproxy.endsWith("/")) {
@@ -376,7 +378,7 @@ const AutoDiscoverySection = ({
           `touch .komari-auto-discovery.json && ` +
           `docker run -d --name komari-agent --restart=always ` +
           `-v .komari-auto-discovery.json:/app/auto-discovery.json ` +
-          `ghcr.io/komari-monitor/komari-agent:latest ` +
+          `ghcr.io/ezvb/komari-agent:latest ` +
           quoteShellArgs(dockerArgs);
         break;
       }
@@ -1526,7 +1528,7 @@ function GenerateCommandButton({ node, settings }: { node: NodeDetail, settings:
       scriptFile = "install.ps1";
     }
     let scriptUrl =
-      `https://raw.githubusercontent.com/komari-monitor/komari-agent/refs/heads/main/${scriptFile}`;
+      `https://raw.githubusercontent.com/EZVB/komari-agent/refs/heads/main/${scriptFile}`;
     if (enableGhproxy) {
       if (enableGhproxy && ghproxy) {
         scriptUrl = scriptUrl.slice(8); // 去掉 https://
@@ -1579,7 +1581,7 @@ function GenerateCommandButton({ node, settings }: { node: NodeDetail, settings:
         }
         finalCommand =
           `docker run -d --name komari-agent --restart=always ` +
-          `ghcr.io/komari-monitor/komari-agent:latest ` +
+          `ghcr.io/ezvb/komari-agent:latest ` +
           quoteShellArgs(dockerArgs);
         break;
       }
@@ -2178,6 +2180,9 @@ function EditButton({ node }: { node: NodeDetail }) {
   const [hidden, setHidden] = useState(false);
   const [saving, setSaving] = useState(false);
   const [traffic_limit_type, setTrafficLimitType] = useState("sum");
+  const [trafficSource, setTrafficSource] = useState<"system" | "xray">(
+    "system"
+  );
   const [trafficLimitInput, setTrafficLimitInput] = useState("");
   const [trafficMultiplierInput, setTrafficMultiplierInput] = useState("");
   const [trafficResetDayInput, setTrafficResetDayInput] = useState("");
@@ -2191,6 +2196,7 @@ function EditButton({ node }: { node: NodeDetail }) {
   React.useEffect(() => {
     setHidden(node.hidden);
     setTrafficLimitType(node.traffic_limit_type || "sum");
+    setTrafficSource(node.traffic_source === "xray" ? "xray" : "system");
     setTrafficLimitInput(
       node.traffic_limit > 0 ? formatBytes(node.traffic_limit) : ""
     );
@@ -2207,6 +2213,7 @@ function EditButton({ node }: { node: NodeDetail }) {
     node.hidden,
     node.traffic_limit,
     node.traffic_limit_type,
+    node.traffic_source,
     node.traffic_multiplier,
     node.traffic_reset_day,
   ]);
@@ -2249,6 +2256,7 @@ function EditButton({ node }: { node: NodeDetail }) {
           ? stringToBytes(trafficLimitInput)
           : 0,
         traffic_limit_type,
+        traffic_source: trafficSource,
         traffic_multiplier: normalizeTrafficMultiplier(
           trafficMultiplierInput
         ),
@@ -2377,6 +2385,34 @@ function EditButton({ node }: { node: NodeDetail }) {
             />
           </div>
           <SettingCardCollapse title={t("admin.nodeEdit.trafficLimit")}>
+            <SettingCard
+              bordless
+              title={t("admin.nodeEdit.trafficSource")}
+              description={t("admin.nodeEdit.trafficSource_description")}
+            >
+              <RadioGroup.Root
+                value={trafficSource}
+                onValueChange={(value) =>
+                  setTrafficSource(value === "xray" ? "xray" : "system")
+                }
+                className="mt-2 w-full"
+              >
+                <Flex gap="5" wrap="wrap">
+                  <Text as="label" size="2">
+                    <Flex gap="2" align="center">
+                      <RadioGroup.Item value="xray" />
+                      {t("admin.nodeEdit.trafficSource_xray")}
+                    </Flex>
+                  </Text>
+                  <Text as="label" size="2">
+                    <Flex gap="2" align="center">
+                      <RadioGroup.Item value="system" />
+                      {t("admin.nodeEdit.trafficSource_system")}
+                    </Flex>
+                  </Text>
+                </Flex>
+              </RadioGroup.Root>
+            </SettingCard>
             <SettingCardSelect
               bordless
               title={t("admin.nodeEdit.trafficLimitType")}

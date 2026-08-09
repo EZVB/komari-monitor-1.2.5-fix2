@@ -13,11 +13,18 @@ import (
 )
 
 type trafficDeltaRecord struct {
-	Time         models.LocalTime `gorm:"column:time"`
-	NetTotalUp   int64            `gorm:"column:net_total_up"`
-	NetTotalDown int64            `gorm:"column:net_total_down"`
-	TrafficUp    int64            `gorm:"column:traffic_up"`
-	TrafficDown  int64            `gorm:"column:traffic_down"`
+	Time            models.LocalTime `gorm:"column:time"`
+	NetTotalUp      int64            `gorm:"column:net_total_up"`
+	NetTotalDown    int64            `gorm:"column:net_total_down"`
+	TrafficUp       int64            `gorm:"column:traffic_up"`
+	TrafficDown     int64            `gorm:"column:traffic_down"`
+	Uptime          int64            `gorm:"column:uptime"`
+	XrayTotalUp     int64            `gorm:"column:xray_total_up"`
+	XrayTotalDown   int64            `gorm:"column:xray_total_down"`
+	XrayTrafficUp   int64            `gorm:"column:xray_traffic_up"`
+	XrayTrafficDown int64            `gorm:"column:xray_traffic_down"`
+	XrayBootTime    int64            `gorm:"column:xray_boot_time"`
+	XrayAvailable   bool             `gorm:"column:xray_available"`
 }
 
 // GetTrafficTotalsInRange returns reset-aware upload and download deltas.
@@ -37,13 +44,35 @@ func GetTrafficTotalsInRangeWithDB(
 	start time.Time,
 	end time.Time,
 ) (int64, int64, error) {
+	return GetTrafficTotalsInRangeBySourceWithDB(
+		db,
+		clientUUID,
+		start,
+		end,
+		models.TrafficSourceSystem,
+	)
+}
+
+// GetTrafficTotalsInRangeBySourceWithDB calculates deltas from cumulative
+// counters. Stored deltas are deliberately not trusted because older versions
+// could persist a full counter value whenever a counter moved backwards.
+func GetTrafficTotalsInRangeBySourceWithDB(
+	db *gorm.DB,
+	clientUUID string,
+	start time.Time,
+	end time.Time,
+	source string,
+) (int64, int64, error) {
 	if !start.Before(end) {
 		return 0, 0, nil
+	}
+	if source != models.TrafficSourceXray {
+		source = models.TrafficSourceSystem
 	}
 
 	var recentRecords []trafficDeltaRecord
 	if err := db.Table("records").
-		Select("time, net_total_up, net_total_down, traffic_up, traffic_down").
+		Select(trafficDeltaSelectColumns).
 		Where(
 			"client = ? AND time >= ? AND time <= ?",
 			clientUUID,
@@ -56,7 +85,7 @@ func GetTrafficTotalsInRangeWithDB(
 
 	var longTermRecords []trafficDeltaRecord
 	if err := db.Table("records_long_term").
-		Select("time, net_total_up, net_total_down, traffic_up, traffic_down").
+		Select(trafficDeltaSelectColumns).
 		Where(
 			"client = ? AND time >= ? AND time <= ?",
 			clientUUID,
@@ -77,9 +106,11 @@ func GetTrafficTotalsInRangeWithDB(
 		return 0, 0, err
 	}
 
-	up, down := sumTrafficDeltas(merged, previous)
+	up, down := sumTrafficDeltas(merged, previous, source)
 	return up, down, nil
 }
+
+const trafficDeltaSelectColumns = "time, net_total_up, net_total_down, traffic_up, traffic_down, uptime, xray_total_up, xray_total_down, xray_traffic_up, xray_traffic_down, xray_boot_time, xray_available"
 
 func mergeTrafficDeltaRecords(
 	recentRecords []trafficDeltaRecord,
@@ -98,9 +129,7 @@ func mergeTrafficDeltaRecords(
 	)
 	for _, record := range longTermRecords {
 		slot := record.Time.ToTime().Truncate(15 * time.Minute)
-		if _, hasRawSlot := rawSlots[slot]; hasRawSlot &&
-			record.TrafficUp == 0 &&
-			record.TrafficDown == 0 {
+		if _, hasRawSlot := rawSlots[slot]; hasRawSlot {
 			continue
 		}
 		longTermSlots[slot] = struct{}{}
@@ -160,7 +189,7 @@ func latestTrafficDeltaRecordBefore(
 ) (*trafficDeltaRecord, error) {
 	var record trafficDeltaRecord
 	err := query.
-		Select("time, net_total_up, net_total_down, traffic_up, traffic_down").
+		Select(trafficDeltaSelectColumns).
 		Where("client = ? AND time < ?", clientUUID, models.FromTime(before)).
 		Order("time DESC").
 		First(&record).Error
@@ -176,42 +205,49 @@ func latestTrafficDeltaRecordBefore(
 func sumTrafficDeltas(
 	records []trafficDeltaRecord,
 	previous *trafficDeltaRecord,
+	source string,
 ) (int64, int64) {
 	var totalUp int64
 	var totalDown int64
+	sourcePrevious := previous
+	if sourcePrevious != nil {
+		_, _, available := sourceTotals(*sourcePrevious, source)
+		if !available {
+			sourcePrevious = nil
+		}
+	}
 
 	for i := range records {
-		up := records[i].TrafficUp
-		down := records[i].TrafficDown
-		if previous != nil {
-			up = trafficDeltaOrFallback(
-				up,
-				records[i].NetTotalUp,
-				previous.NetTotalUp,
-			)
-			down = trafficDeltaOrFallback(
-				down,
-				records[i].NetTotalDown,
-				previous.NetTotalDown,
-			)
+		currentUp, currentDown, available := sourceTotals(records[i], source)
+		if !available {
+			continue
 		}
-		totalUp = saturatingAddTraffic(totalUp, up)
-		totalDown = saturatingAddTraffic(totalDown, down)
-		previous = &records[i]
+		if sourcePrevious != nil {
+			previousUp, previousDown, _ := sourceTotals(*sourcePrevious, source)
+			reset := sourceCounterRestarted(records[i], *sourcePrevious, source)
+			totalUp = saturatingAddTraffic(totalUp, utils.ComputeTrafficDeltaWithReset(currentUp, previousUp, reset))
+			totalDown = saturatingAddTraffic(totalDown, utils.ComputeTrafficDeltaWithReset(currentDown, previousDown, reset))
+		}
+		sourcePrevious = &records[i]
 	}
 
 	return totalUp, totalDown
 }
 
-func trafficDeltaOrFallback(
-	storedDelta int64,
-	currentTotal int64,
-	previousTotal int64,
-) int64 {
-	if storedDelta > 0 {
-		return storedDelta
+func sourceTotals(record trafficDeltaRecord, source string) (int64, int64, bool) {
+	if source == models.TrafficSourceXray {
+		return record.XrayTotalUp, record.XrayTotalDown, record.XrayAvailable
 	}
-	return utils.ComputeTrafficDelta(currentTotal, previousTotal)
+	return record.NetTotalUp, record.NetTotalDown, true
+}
+
+func sourceCounterRestarted(current, previous trafficDeltaRecord, source string) bool {
+	if source == models.TrafficSourceXray {
+		return current.XrayBootTime > 0 &&
+			previous.XrayBootTime > 0 &&
+			current.XrayBootTime != previous.XrayBootTime
+	}
+	return current.Uptime > 0 && previous.Uptime > 0 && current.Uptime < previous.Uptime
 }
 
 func saturatingAddTraffic(left, right int64) int64 {

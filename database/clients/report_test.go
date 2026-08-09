@@ -18,7 +18,7 @@ func TestComputeTrafficDeltaHandlesZeroAndReset(t *testing.T) {
 	}{
 		{name: "previous zero counts current delta", current: 120, previous: 0, want: 120},
 		{name: "monotonic counter uses difference", current: 250, previous: 200, want: 50},
-		{name: "counter reset uses current", current: 15, previous: 250, want: 15},
+		{name: "counter rollback starts a new baseline", current: 15, previous: 250, want: 0},
 		{name: "negative previous remains guarded", current: 15, previous: -1, want: 0},
 	}
 
@@ -27,6 +27,18 @@ func TestComputeTrafficDeltaHandlesZeroAndReset(t *testing.T) {
 			assert.Equal(t, test.want, utils.ComputeTrafficDelta(test.current, test.previous))
 		})
 	}
+}
+
+func TestCounterOwnerRestartedRequiresUptimeRollback(t *testing.T) {
+	assert.True(t, counterOwnerRestarted(10, 250))
+	assert.False(t, counterOwnerRestarted(260, 250))
+	assert.False(t, counterOwnerRestarted(0, 250))
+}
+
+func TestXrayCounterRestartedRequiresBootTimeChange(t *testing.T) {
+	assert.True(t, xrayCounterRestarted(200, 100))
+	assert.False(t, xrayCounterRestarted(100, 100))
+	assert.False(t, xrayCounterRestarted(0, 100))
 }
 
 func TestReportSaveLockSerializesSameClient(t *testing.T) {

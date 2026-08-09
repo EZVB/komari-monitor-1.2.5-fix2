@@ -144,26 +144,41 @@ func TestCompactRecordPreservesExactTrafficDelta(t *testing.T) {
 
 	records := []models.Record{
 		{
-			Client:       uuid,
-			Time:         models.FromTime(now),
-			NetTotalUp:   100,
-			NetTotalDown: 200,
-			TrafficUp:    0,
-			TrafficDown:  0,
+			Client:          uuid,
+			Time:            models.FromTime(now),
+			NetTotalUp:      100,
+			NetTotalDown:    200,
+			Uptime:          100,
+			TrafficUp:       0,
+			TrafficDown:     0,
+			XrayTotalUp:     300,
+			XrayTotalDown:   400,
+			XrayBootTime:    1_000,
+			XrayAvailable:   true,
+			XrayTrafficUp:   0,
+			XrayTrafficDown: 0,
 		},
 		{
-			Client:       uuid,
-			Time:         models.FromTime(now.Add(5 * time.Minute)),
-			NetTotalUp:   150,
-			NetTotalDown: 260,
-			TrafficUp:    50,
-			TrafficDown:  60,
+			Client:          uuid,
+			Time:            models.FromTime(now.Add(5 * time.Minute)),
+			NetTotalUp:      150,
+			NetTotalDown:    260,
+			Uptime:          400,
+			TrafficUp:       50,
+			TrafficDown:     60,
+			XrayTotalUp:     325,
+			XrayTotalDown:   450,
+			XrayBootTime:    1_000,
+			XrayAvailable:   true,
+			XrayTrafficUp:   25,
+			XrayTrafficDown: 50,
 		},
 		{
 			Client:       uuid,
 			Time:         models.FromTime(now.Add(10 * time.Minute)),
 			NetTotalUp:   10,
 			NetTotalDown: 30,
+			Uptime:       10,
 			TrafficUp:    10,
 			TrafficDown:  30,
 		},
@@ -182,6 +197,12 @@ func TestCompactRecordPreservesExactTrafficDelta(t *testing.T) {
 	assert.Equal(t, int64(90), compacted[0].TrafficDown)
 	assert.Equal(t, int64(10), compacted[0].NetTotalUp)
 	assert.Equal(t, int64(30), compacted[0].NetTotalDown)
+	assert.Equal(t, int64(325), compacted[0].XrayTotalUp)
+	assert.Equal(t, int64(450), compacted[0].XrayTotalDown)
+	assert.Equal(t, int64(25), compacted[0].XrayTrafficUp)
+	assert.Equal(t, int64(50), compacted[0].XrayTrafficDown)
+	assert.Equal(t, int64(1_000), compacted[0].XrayBootTime)
+	assert.True(t, compacted[0].XrayAvailable)
 	assert.True(t, compacted[0].Time.ToTime().Equal(records[2].Time.ToTime().Truncate(15*time.Minute)))
 }
 
@@ -189,10 +210,10 @@ func TestRepairZeroTrafficDeltasPreservesRawResetDetailBeforeCompaction(t *testi
 	loc := models.GetAppLocation()
 	start := time.Date(2026, 6, 6, 0, 0, 0, 0, loc)
 	records := []models.Record{
-		{Client: uuid, Time: models.FromTime(start), NetTotalUp: 100, NetTotalDown: 200},
-		{Client: uuid, Time: models.FromTime(start.Add(5 * time.Minute)), NetTotalUp: 140, NetTotalDown: 260},
-		{Client: uuid, Time: models.FromTime(start.Add(10 * time.Minute)), NetTotalUp: 10, NetTotalDown: 20},
-		{Client: uuid, Time: models.FromTime(start.Add(15 * time.Minute)), NetTotalUp: 25, NetTotalDown: 35},
+		{Client: uuid, Time: models.FromTime(start), NetTotalUp: 100, NetTotalDown: 200, Uptime: 100},
+		{Client: uuid, Time: models.FromTime(start.Add(5 * time.Minute)), NetTotalUp: 140, NetTotalDown: 260, Uptime: 400},
+		{Client: uuid, Time: models.FromTime(start.Add(10 * time.Minute)), NetTotalUp: 10, NetTotalDown: 20, Uptime: 10},
+		{Client: uuid, Time: models.FromTime(start.Add(15 * time.Minute)), NetTotalUp: 25, NetTotalDown: 35, Uptime: 300},
 	}
 
 	repairZeroTrafficDeltas(records, nil)
@@ -203,6 +224,26 @@ func TestRepairZeroTrafficDeltasPreservesRawResetDetailBeforeCompaction(t *testi
 	assert.Equal(t, int64(60), records[1].TrafficDown)
 	assert.Equal(t, int64(10), records[2].TrafficUp)
 	assert.Equal(t, int64(20), records[2].TrafficDown)
+	assert.Equal(t, int64(15), records[3].TrafficUp)
+	assert.Equal(t, int64(15), records[3].TrafficDown)
+}
+
+func TestRepairZeroTrafficDeltasRebasesRollbackWithoutRestart(t *testing.T) {
+	loc := models.GetAppLocation()
+	start := time.Date(2026, 6, 6, 0, 0, 0, 0, loc)
+	records := []models.Record{
+		{Client: uuid, Time: models.FromTime(start), NetTotalUp: 100, NetTotalDown: 200, Uptime: 100},
+		{Client: uuid, Time: models.FromTime(start.Add(time.Minute)), NetTotalUp: 140, NetTotalDown: 260, Uptime: 160},
+		{Client: uuid, Time: models.FromTime(start.Add(2 * time.Minute)), NetTotalUp: 10, NetTotalDown: 20, Uptime: 220},
+		{Client: uuid, Time: models.FromTime(start.Add(3 * time.Minute)), NetTotalUp: 25, NetTotalDown: 35, Uptime: 280},
+	}
+
+	repairZeroTrafficDeltas(records, nil)
+
+	assert.Equal(t, int64(40), records[1].TrafficUp)
+	assert.Equal(t, int64(60), records[1].TrafficDown)
+	assert.Equal(t, int64(0), records[2].TrafficUp)
+	assert.Equal(t, int64(0), records[2].TrafficDown)
 	assert.Equal(t, int64(15), records[3].TrafficUp)
 	assert.Equal(t, int64(15), records[3].TrafficDown)
 }

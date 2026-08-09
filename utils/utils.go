@@ -26,7 +26,9 @@ func AverageReport(uuid string, time time.Time, records []v1.Report, topPercenta
 		}
 	}
 
-	latestTotalUp, latestTotalDown := latestNetworkTotals(records)
+	latest := latestReport(records)
+	latestTotalUp := latest.Network.TotalUp
+	latestTotalDown := latest.Network.TotalDown
 
 	// 定义一个辅助函数，用于排序和求和
 	sumAndSort := func(getFloat32Value func(v1.Report) float32, getInt64Value func(v1.Report) int64, isFloat bool) (float32, int64) {
@@ -124,16 +126,23 @@ func AverageReport(uuid string, time time.Time, records []v1.Report, topPercenta
 		NetOut:         sumNETOut / int64(recordsToAverageCount),
 		NetTotalUp:     latestTotalUp,
 		NetTotalDown:   latestTotalDown,
+		Uptime:         latest.Uptime,
 		Process:        sumPROCESS / recordsToAverageCount,
 		Connections:    sumConnections / recordsToAverageCount,
 		ConnectionsUdp: sumConnectionsUDP / recordsToAverageCount,
 	}
+	if latest.Xray != nil {
+		newRecord.XrayTotalUp = latest.Xray.TotalUp
+		newRecord.XrayTotalDown = latest.Xray.TotalDown
+		newRecord.XrayBootTime = latest.Xray.BootTime
+		newRecord.XrayAvailable = true
+	}
 	return newRecord
 }
 
-func latestNetworkTotals(records []v1.Report) (int64, int64) {
+func latestReport(records []v1.Report) v1.Report {
 	if len(records) == 0 {
-		return 0, 0
+		return v1.Report{}
 	}
 	latestIndex := 0
 	for i := 1; i < len(records); i++ {
@@ -142,17 +151,26 @@ func latestNetworkTotals(records []v1.Report) (int64, int64) {
 			latestIndex = i
 		}
 	}
-	return records[latestIndex].Network.TotalUp, records[latestIndex].Network.TotalDown
+	return records[latestIndex]
 }
 
 func ComputeTrafficDelta(current, previous int64) int64 {
+	return ComputeTrafficDeltaWithReset(current, previous, false)
+}
+
+// ComputeTrafficDeltaWithReset only counts a counter rollback when the caller
+// has independent evidence that the counter owner restarted.
+func ComputeTrafficDeltaWithReset(current, previous int64, reset bool) int64 {
 	if current < 0 || previous < 0 {
 		return 0
 	}
 	if current >= previous {
 		return current - previous
 	}
-	return current
+	if reset {
+		return current
+	}
+	return 0
 }
 
 // AverageGPUReports 使用与 AverageReport 相同的聚合逻辑处理GPU数据

@@ -19,18 +19,24 @@ func TestGetClientTrafficInRangeAvoidsOverlappingRawAndLongTermRows(t *testing.T
 	clientUUID := "client-overlap"
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 	sharedSlot := start.Add(15 * time.Minute)
+	assert.NoError(t, db.Create(&models.Record{
+		Client:       clientUUID,
+		Time:         models.FromTime(start.Add(-time.Minute)),
+		NetTotalUp:   100,
+		NetTotalDown: 200,
+	}).Error)
 
 	assert.NoError(t, db.Table("records_long_term").Create(&models.Record{
-		Client:      clientUUID,
-		Time:        models.FromTime(sharedSlot),
-		TrafficUp:   100,
-		TrafficDown: 200,
+		Client:       clientUUID,
+		Time:         models.FromTime(sharedSlot),
+		NetTotalUp:   200,
+		NetTotalDown: 400,
 	}).Error)
 
 	rawRecords := []models.Record{
-		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(1 * time.Minute)), TrafficUp: 40, TrafficDown: 80},
-		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(5 * time.Minute)), TrafficUp: 60, TrafficDown: 120},
-		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(16 * time.Minute)), TrafficUp: 30, TrafficDown: 50},
+		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(1 * time.Minute)), NetTotalUp: 140, NetTotalDown: 280},
+		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(5 * time.Minute)), NetTotalUp: 200, NetTotalDown: 400},
+		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(16 * time.Minute)), NetTotalUp: 230, NetTotalDown: 450},
 	}
 	for _, record := range rawRecords {
 		assert.NoError(t, db.Create(&record).Error)
@@ -50,18 +56,24 @@ func TestGetClientTrafficInRangeNormalizesLongTermSlotForOverlap(t *testing.T) {
 	clientUUID := "client-overlap-normalized"
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 	sharedSlot := start.Add(15 * time.Minute)
+	assert.NoError(t, db.Create(&models.Record{
+		Client:       clientUUID,
+		Time:         models.FromTime(start.Add(-time.Minute)),
+		NetTotalUp:   100,
+		NetTotalDown: 200,
+	}).Error)
 
 	assert.NoError(t, db.Table("records_long_term").Create(&models.Record{
-		Client:      clientUUID,
-		Time:        models.FromTime(sharedSlot.Add(8 * time.Minute)),
-		TrafficUp:   100,
-		TrafficDown: 200,
+		Client:       clientUUID,
+		Time:         models.FromTime(sharedSlot.Add(8 * time.Minute)),
+		NetTotalUp:   200,
+		NetTotalDown: 400,
 	}).Error)
 
 	rawRecords := []models.Record{
-		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(1 * time.Minute)), TrafficUp: 40, TrafficDown: 80},
-		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(5 * time.Minute)), TrafficUp: 60, TrafficDown: 120},
-		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(16 * time.Minute)), TrafficUp: 30, TrafficDown: 50},
+		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(1 * time.Minute)), NetTotalUp: 140, NetTotalDown: 280},
+		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(5 * time.Minute)), NetTotalUp: 200, NetTotalDown: 400},
+		{Client: clientUUID, Time: models.FromTime(sharedSlot.Add(16 * time.Minute)), NetTotalUp: 230, NetTotalDown: 450},
 	}
 	for _, record := range rawRecords {
 		assert.NoError(t, db.Create(&record).Error)
@@ -72,7 +84,7 @@ func TestGetClientTrafficInRangeNormalizesLongTermSlotForOverlap(t *testing.T) {
 	assert.Equal(t, int64(380), used)
 }
 
-func TestGetClientTrafficInRangeSumsPersistedDeltasAcrossCounterReset(t *testing.T) {
+func TestGetClientTrafficInRangeCountsCounterResetWithRestartEvidence(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
 	assert.NoError(t, db.AutoMigrate(&models.Record{}))
@@ -81,10 +93,10 @@ func TestGetClientTrafficInRangeSumsPersistedDeltasAcrossCounterReset(t *testing
 	clientUUID := "client-reset"
 	start := time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC)
 	records := []models.Record{
-		{Client: clientUUID, Time: models.FromTime(start.Add(0 * time.Minute)), NetTotalUp: 100, NetTotalDown: 200, TrafficUp: 0, TrafficDown: 0},
-		{Client: clientUUID, Time: models.FromTime(start.Add(5 * time.Minute)), NetTotalUp: 150, NetTotalDown: 260, TrafficUp: 50, TrafficDown: 60},
-		{Client: clientUUID, Time: models.FromTime(start.Add(10 * time.Minute)), NetTotalUp: 10, NetTotalDown: 30, TrafficUp: 10, TrafficDown: 30},
-		{Client: clientUUID, Time: models.FromTime(start.Add(15 * time.Minute)), NetTotalUp: 25, NetTotalDown: 40, TrafficUp: 15, TrafficDown: 10},
+		{Client: clientUUID, Time: models.FromTime(start.Add(0 * time.Minute)), NetTotalUp: 100, NetTotalDown: 200, Uptime: 100},
+		{Client: clientUUID, Time: models.FromTime(start.Add(5 * time.Minute)), NetTotalUp: 150, NetTotalDown: 260, Uptime: 400},
+		{Client: clientUUID, Time: models.FromTime(start.Add(10 * time.Minute)), NetTotalUp: 10, NetTotalDown: 30, Uptime: 10},
+		{Client: clientUUID, Time: models.FromTime(start.Add(15 * time.Minute)), NetTotalUp: 25, NetTotalDown: 40, Uptime: 300},
 	}
 	for _, record := range records {
 		assert.NoError(t, db.Create(&record).Error)
@@ -104,11 +116,11 @@ func TestGetClientTrafficInRangeFallsBackForPersistedZeroDeltas(t *testing.T) {
 	clientUUID := "client-zero-deltas"
 	start := time.Date(2026, 6, 3, 0, 0, 0, 0, time.UTC)
 	records := []models.Record{
-		{Client: clientUUID, Time: models.FromTime(start.Add(-5 * time.Minute)), NetTotalUp: 100, NetTotalDown: 200},
-		{Client: clientUUID, Time: models.FromTime(start.Add(0 * time.Minute)), NetTotalUp: 130, NetTotalDown: 250},
-		{Client: clientUUID, Time: models.FromTime(start.Add(5 * time.Minute)), NetTotalUp: 160, NetTotalDown: 310},
-		{Client: clientUUID, Time: models.FromTime(start.Add(10 * time.Minute)), NetTotalUp: 10, NetTotalDown: 30},
-		{Client: clientUUID, Time: models.FromTime(start.Add(15 * time.Minute)), NetTotalUp: 25, NetTotalDown: 40},
+		{Client: clientUUID, Time: models.FromTime(start.Add(-5 * time.Minute)), NetTotalUp: 100, NetTotalDown: 200, Uptime: 100},
+		{Client: clientUUID, Time: models.FromTime(start.Add(0 * time.Minute)), NetTotalUp: 130, NetTotalDown: 250, Uptime: 400},
+		{Client: clientUUID, Time: models.FromTime(start.Add(5 * time.Minute)), NetTotalUp: 160, NetTotalDown: 310, Uptime: 700},
+		{Client: clientUUID, Time: models.FromTime(start.Add(10 * time.Minute)), NetTotalUp: 10, NetTotalDown: 30, Uptime: 10},
+		{Client: clientUUID, Time: models.FromTime(start.Add(15 * time.Minute)), NetTotalUp: 25, NetTotalDown: 40, Uptime: 300},
 	}
 	for _, record := range records {
 		assert.NoError(t, db.Create(&record).Error)
@@ -161,6 +173,7 @@ func TestGetClientTrafficInRangePrefersRawSlotOverZeroLongTermSlot(t *testing.T)
 		Time:         models.FromTime(start.Add(-5 * time.Minute)),
 		NetTotalUp:   100,
 		NetTotalDown: 200,
+		Uptime:       100,
 	}).Error)
 
 	assert.NoError(t, db.Table("records_long_term").Create(&models.Record{
@@ -173,9 +186,9 @@ func TestGetClientTrafficInRangePrefersRawSlotOverZeroLongTermSlot(t *testing.T)
 	}).Error)
 
 	rawRecords := []models.Record{
-		{Client: clientUUID, Time: models.FromTime(slot.Add(1 * time.Minute)), NetTotalUp: 130, NetTotalDown: 240},
-		{Client: clientUUID, Time: models.FromTime(slot.Add(5 * time.Minute)), NetTotalUp: 10, NetTotalDown: 20},
-		{Client: clientUUID, Time: models.FromTime(slot.Add(10 * time.Minute)), NetTotalUp: 15, NetTotalDown: 25},
+		{Client: clientUUID, Time: models.FromTime(slot.Add(1 * time.Minute)), NetTotalUp: 130, NetTotalDown: 240, Uptime: 400},
+		{Client: clientUUID, Time: models.FromTime(slot.Add(5 * time.Minute)), NetTotalUp: 10, NetTotalDown: 20, Uptime: 10},
+		{Client: clientUUID, Time: models.FromTime(slot.Add(10 * time.Minute)), NetTotalUp: 15, NetTotalDown: 25, Uptime: 300},
 	}
 	for _, record := range rawRecords {
 		assert.NoError(t, db.Create(&record).Error)
@@ -184,4 +197,33 @@ func TestGetClientTrafficInRangePrefersRawSlotOverZeroLongTermSlot(t *testing.T)
 	used, err := getClientTrafficInRangeWithDB(db, clientUUID, "sum", start, slot.Add(15*time.Minute))
 	assert.NoError(t, err)
 	assert.Equal(t, int64(110), used)
+}
+
+func TestGetClientTrafficInRangeUsesSelectedXraySource(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	assert.NoError(t, err)
+	assert.NoError(t, db.AutoMigrate(&models.Record{}))
+	assert.NoError(t, db.Table("records_long_term").AutoMigrate(&models.Record{}))
+
+	clientUUID := "client-xray"
+	start := time.Date(2026, 6, 6, 0, 0, 0, 0, time.UTC)
+	records := []models.Record{
+		{Client: clientUUID, Time: models.FromTime(start.Add(-time.Minute)), XrayTotalUp: 100, XrayTotalDown: 200, XrayBootTime: 1000, XrayAvailable: true},
+		{Client: clientUUID, Time: models.FromTime(start), XrayTotalUp: 140, XrayTotalDown: 260, XrayBootTime: 1000, XrayAvailable: true},
+		{Client: clientUUID, Time: models.FromTime(start.Add(5 * time.Minute)), XrayTotalUp: 170, XrayTotalDown: 300, XrayBootTime: 1000, XrayAvailable: true},
+	}
+	for _, record := range records {
+		assert.NoError(t, db.Create(&record).Error)
+	}
+
+	used, err := getClientTrafficInRangeBySourceWithDB(
+		db,
+		clientUUID,
+		"sum",
+		models.TrafficSourceXray,
+		start,
+		start.Add(10*time.Minute),
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(170), used)
 }

@@ -35,7 +35,7 @@ func TestComputeTrafficDelta(t *testing.T) {
 		{name: "previous zero counts current delta", current: 120, previous: 0, want: 120},
 		{name: "monotonic counter uses difference", current: 250, previous: 200, want: 50},
 		{name: "same counter", current: 100, previous: 100, want: 0},
-		{name: "counter reset uses current", current: 15, previous: 250, want: 15},
+		{name: "counter rollback starts a new baseline", current: 15, previous: 250, want: 0},
 		{name: "negative current remains guarded", current: -1, previous: 100, want: 0},
 		{name: "negative previous remains guarded", current: 15, previous: -1, want: 0},
 	}
@@ -45,4 +45,9 @@ func TestComputeTrafficDelta(t *testing.T) {
 			assert.Equal(t, test.want, ComputeTrafficDelta(test.current, test.previous))
 		})
 	}
+}
+
+func TestComputeTrafficDeltaWithReset(t *testing.T) {
+	assert.Equal(t, int64(15), ComputeTrafficDeltaWithReset(15, 250, true))
+	assert.Equal(t, int64(0), ComputeTrafficDeltaWithReset(15, 250, false))
 }
