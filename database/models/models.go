@@ -6,11 +6,6 @@ import (
 	"fmt"
 )
 
-const (
-	TrafficSourceSystem = "system"
-	TrafficSourceXray   = "xray"
-)
-
 // Client represents a registered client device
 type Client struct {
 	UUID              string    `json:"uuid,omitempty" gorm:"type:varchar(36);primaryKey"`
@@ -44,7 +39,6 @@ type Client struct {
 	Hidden            bool      `json:"hidden" gorm:"default:false"`
 	TrafficLimit      int64     `json:"traffic_limit" gorm:"type:bigint"`
 	TrafficLimitType  string    `json:"traffic_limit_type" gorm:"type:varchar(10);default:'sum'"` // 流量阈值类型：sum max min up down
-	TrafficSource     string    `json:"traffic_source" gorm:"type:varchar(10);default:'system'"`
 	TrafficMultiplier float64   `json:"traffic_multiplier" gorm:"type:decimal(10,4);default:0"`
 	TrafficResetDay   int       `json:"traffic_reset_day" gorm:"type:int;default:0"`
 	TrafficInitial    int64     `json:"traffic_initial" gorm:"type:bigint;default:0"`
@@ -86,34 +80,28 @@ type Session struct {
 
 // Record logs client metrics over time
 type Record struct {
-	Client          string    `json:"client" gorm:"type:varchar(36);index"`
-	Time            LocalTime `json:"time" gorm:"index"`
-	Cpu             float32   `json:"cpu" gorm:"type:decimal(5,2)"` // e.g., 75.50%
-	Gpu             float32   `json:"gpu" gorm:"type:decimal(5,2)"`
-	Ram             int64     `json:"ram" gorm:"type:bigint"`
-	RamTotal        int64     `json:"ram_total" gorm:"type:bigint"`
-	Swap            int64     `json:"swap" gorm:"type:bigint"`
-	SwapTotal       int64     `json:"swap_total" gorm:"type:bigint"`
-	Load            float32   `json:"load" gorm:"type:decimal(5,2)"`
-	Temp            float32   `json:"temp" gorm:"type:decimal(5,2)"`
-	Disk            int64     `json:"disk" gorm:"type:bigint"`
-	DiskTotal       int64     `json:"disk_total" gorm:"type:bigint"`
-	NetIn           int64     `json:"net_in" gorm:"type:bigint"`
-	NetOut          int64     `json:"net_out" gorm:"type:bigint"`
-	NetTotalUp      int64     `json:"net_total_up" gorm:"type:bigint"`
-	NetTotalDown    int64     `json:"net_total_down" gorm:"type:bigint"`
-	TrafficUp       int64     `json:"traffic_up" gorm:"type:bigint"`
-	TrafficDown     int64     `json:"traffic_down" gorm:"type:bigint"`
-	Uptime          int64     `json:"uptime" gorm:"type:bigint"`
-	XrayTotalUp     int64     `json:"xray_total_up" gorm:"type:bigint"`
-	XrayTotalDown   int64     `json:"xray_total_down" gorm:"type:bigint"`
-	XrayTrafficUp   int64     `json:"xray_traffic_up" gorm:"type:bigint"`
-	XrayTrafficDown int64     `json:"xray_traffic_down" gorm:"type:bigint"`
-	XrayBootTime    int64     `json:"xray_boot_time" gorm:"type:bigint"`
-	XrayAvailable   bool      `json:"xray_available" gorm:"default:false"`
-	Process         int       `json:"process"`
-	Connections     int       `json:"connections"`
-	ConnectionsUdp  int       `json:"connections_udp"`
+	Client         string    `json:"client" gorm:"type:varchar(36);index"`
+	Time           LocalTime `json:"time" gorm:"index"`
+	Cpu            float32   `json:"cpu" gorm:"type:decimal(5,2)"` // e.g., 75.50%
+	Gpu            float32   `json:"gpu" gorm:"type:decimal(5,2)"`
+	Ram            int64     `json:"ram" gorm:"type:bigint"`
+	RamTotal       int64     `json:"ram_total" gorm:"type:bigint"`
+	Swap           int64     `json:"swap" gorm:"type:bigint"`
+	SwapTotal      int64     `json:"swap_total" gorm:"type:bigint"`
+	Load           float32   `json:"load" gorm:"type:decimal(5,2)"`
+	Temp           float32   `json:"temp" gorm:"type:decimal(5,2)"`
+	Disk           int64     `json:"disk" gorm:"type:bigint"`
+	DiskTotal      int64     `json:"disk_total" gorm:"type:bigint"`
+	NetIn          int64     `json:"net_in" gorm:"type:bigint"`
+	NetOut         int64     `json:"net_out" gorm:"type:bigint"`
+	NetTotalUp     int64     `json:"net_total_up" gorm:"type:bigint"`
+	NetTotalDown   int64     `json:"net_total_down" gorm:"type:bigint"`
+	TrafficUp      int64     `json:"traffic_up" gorm:"type:bigint"`
+	TrafficDown    int64     `json:"traffic_down" gorm:"type:bigint"`
+	Uptime         int64     `json:"uptime" gorm:"type:bigint"`
+	Process        int       `json:"process"`
+	Connections    int       `json:"connections"`
+	ConnectionsUdp int       `json:"connections_udp"`
 }
 
 // GPURecord logs individual GPU metrics over time

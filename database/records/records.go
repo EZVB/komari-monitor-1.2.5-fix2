@@ -209,37 +209,30 @@ func migrateOldRecordsAt(db *gorm.DB, now time.Time) error {
 
 	// 按 Client 和 15 分钟时间段分组，并存储所有记录以计算分位数
 	type groupData struct {
-		Cpu                 []float32
-		Gpu                 []float32
-		Load                []float32
-		Temp                []float32
-		Ram                 []int64
-		RamTotal            []int64
-		Swap                []int64
-		SwapTotal           []int64
-		Disk                []int64
-		DiskTotal           []int64
-		NetIn               []int64
-		NetOut              []int64
-		NetTotalUp          []int64
-		NetTotalDown        []int64
-		TrafficUp           int64
-		TrafficDown         int64
-		XrayTrafficUp       int64
-		XrayTrafficDown     int64
-		LatestTime          time.Time
-		LatestXrayTime      time.Time
-		LatestTotalUp       int64
-		LatestTotalDown     int64
-		LatestUptime        int64
-		LatestXrayTotalUp   int64
-		LatestXrayTotalDown int64
-		LatestXrayBootTime  int64
-		LatestXrayAvailable bool
-		Process             []int
-		Connections         []int
-		ConnectionsUdp      []int
-		Uptime              []int64
+		Cpu             []float32
+		Gpu             []float32
+		Load            []float32
+		Temp            []float32
+		Ram             []int64
+		RamTotal        []int64
+		Swap            []int64
+		SwapTotal       []int64
+		Disk            []int64
+		DiskTotal       []int64
+		NetIn           []int64
+		NetOut          []int64
+		NetTotalUp      []int64
+		NetTotalDown    []int64
+		TrafficUp       int64
+		TrafficDown     int64
+		LatestTime      time.Time
+		LatestTotalUp   int64
+		LatestTotalDown int64
+		LatestUptime    int64
+		Process         []int
+		Connections     []int
+		ConnectionsUdp  []int
+		Uptime          []int64
 	}
 
 	groupedRecords := make(map[string]*groupData)
@@ -265,20 +258,11 @@ func migrateOldRecordsAt(db *gorm.DB, now time.Time) error {
 		data.NetTotalDown = append(data.NetTotalDown, record.NetTotalDown)
 		data.TrafficUp += record.TrafficUp
 		data.TrafficDown += record.TrafficDown
-		data.XrayTrafficUp += record.XrayTrafficUp
-		data.XrayTrafficDown += record.XrayTrafficDown
 		if data.LatestTime.IsZero() || record.Time.ToTime().After(data.LatestTime) {
 			data.LatestTime = record.Time.ToTime()
 			data.LatestTotalUp = record.NetTotalUp
 			data.LatestTotalDown = record.NetTotalDown
 			data.LatestUptime = record.Uptime
-		}
-		if record.XrayAvailable && (data.LatestXrayTime.IsZero() || record.Time.ToTime().After(data.LatestXrayTime)) {
-			data.LatestXrayTime = record.Time.ToTime()
-			data.LatestXrayTotalUp = record.XrayTotalUp
-			data.LatestXrayTotalDown = record.XrayTotalDown
-			data.LatestXrayBootTime = record.XrayBootTime
-			data.LatestXrayAvailable = true
 		}
 		data.Process = append(data.Process, record.Process)
 		data.Connections = append(data.Connections, record.Connections)
@@ -359,34 +343,28 @@ func migrateOldRecordsAt(db *gorm.DB, now time.Time) error {
 			}
 
 			newRec := models.Record{
-				Client:          clientUUID,
-				Time:            models.FromTime(timeSlot),
-				Cpu:             float32(getPercentile(cpuFloats, high_percentile)),
-				Gpu:             float32(getPercentile(gpuFloats, high_percentile)),
-				Load:            float32(getPercentile(loadFloats, high_percentile)),
-				Temp:            float32(getPercentile(tempFloats, high_percentile)),
-				Ram:             getIntPercentile(data.Ram, high_percentile),
-				RamTotal:        getIntPercentile(data.RamTotal, high_percentile),
-				Swap:            getIntPercentile(data.Swap, high_percentile),
-				SwapTotal:       getIntPercentile(data.SwapTotal, high_percentile),
-				Disk:            getIntPercentile(data.Disk, high_percentile),
-				DiskTotal:       getIntPercentile(data.DiskTotal, high_percentile),
-				NetIn:           getIntPercentile(data.NetIn, 0.2),
-				NetOut:          getIntPercentile(data.NetOut, 0.2),
-				NetTotalUp:      data.LatestTotalUp,
-				NetTotalDown:    data.LatestTotalDown,
-				TrafficUp:       data.TrafficUp,
-				TrafficDown:     data.TrafficDown,
-				Uptime:          data.LatestUptime,
-				XrayTotalUp:     data.LatestXrayTotalUp,
-				XrayTotalDown:   data.LatestXrayTotalDown,
-				XrayTrafficUp:   data.XrayTrafficUp,
-				XrayTrafficDown: data.XrayTrafficDown,
-				XrayBootTime:    data.LatestXrayBootTime,
-				XrayAvailable:   data.LatestXrayAvailable,
-				Process:         getInt32Percentile(data.Process, high_percentile),
-				Connections:     getInt32Percentile(data.Connections, high_percentile),
-				ConnectionsUdp:  getInt32Percentile(data.ConnectionsUdp, high_percentile),
+				Client:         clientUUID,
+				Time:           models.FromTime(timeSlot),
+				Cpu:            float32(getPercentile(cpuFloats, high_percentile)),
+				Gpu:            float32(getPercentile(gpuFloats, high_percentile)),
+				Load:           float32(getPercentile(loadFloats, high_percentile)),
+				Temp:           float32(getPercentile(tempFloats, high_percentile)),
+				Ram:            getIntPercentile(data.Ram, high_percentile),
+				RamTotal:       getIntPercentile(data.RamTotal, high_percentile),
+				Swap:           getIntPercentile(data.Swap, high_percentile),
+				SwapTotal:      getIntPercentile(data.SwapTotal, high_percentile),
+				Disk:           getIntPercentile(data.Disk, high_percentile),
+				DiskTotal:      getIntPercentile(data.DiskTotal, high_percentile),
+				NetIn:          getIntPercentile(data.NetIn, 0.2),
+				NetOut:         getIntPercentile(data.NetOut, 0.2),
+				NetTotalUp:     data.LatestTotalUp,
+				NetTotalDown:   data.LatestTotalDown,
+				TrafficUp:      data.TrafficUp,
+				TrafficDown:    data.TrafficDown,
+				Uptime:         data.LatestUptime,
+				Process:        getInt32Percentile(data.Process, high_percentile),
+				Connections:    getInt32Percentile(data.Connections, high_percentile),
+				ConnectionsUdp: getInt32Percentile(data.ConnectionsUdp, high_percentile),
 			}
 
 			// 如果记录已存在则更新，否则创建新记录
@@ -469,38 +447,19 @@ func repairZeroTrafficDeltas(records []models.Record, previousByClient map[strin
 			return clientRecords[i].Time.ToTime().Before(clientRecords[j].Time.ToTime())
 		})
 		var previous *models.Record
-		var previousXray *models.Record
 		if previousByClient != nil {
 			previous = previousByClient[clientRecords[0].Client]
-			if previous != nil && previous.XrayAvailable {
-				previousXray = previous
-			}
 		}
 		for _, current := range clientRecords {
 			if previous == nil {
 				current.TrafficUp = 0
 				current.TrafficDown = 0
-				current.XrayTrafficUp = 0
-				current.XrayTrafficDown = 0
 				previous = current
-				if current.XrayAvailable {
-					previousXray = current
-				}
 				continue
 			}
 			systemRestarted := current.Uptime > 0 && previous.Uptime > 0 && current.Uptime < previous.Uptime
 			current.TrafficUp = utils.ComputeTrafficDeltaWithReset(current.NetTotalUp, previous.NetTotalUp, systemRestarted)
 			current.TrafficDown = utils.ComputeTrafficDeltaWithReset(current.NetTotalDown, previous.NetTotalDown, systemRestarted)
-			current.XrayTrafficUp = 0
-			current.XrayTrafficDown = 0
-			if current.XrayAvailable {
-				if previousXray != nil {
-					xrayRestarted := current.XrayBootTime > 0 && previousXray.XrayBootTime > 0 && current.XrayBootTime != previousXray.XrayBootTime
-					current.XrayTrafficUp = utils.ComputeTrafficDeltaWithReset(current.XrayTotalUp, previousXray.XrayTotalUp, xrayRestarted)
-					current.XrayTrafficDown = utils.ComputeTrafficDeltaWithReset(current.XrayTotalDown, previousXray.XrayTotalDown, xrayRestarted)
-				}
-				previousXray = current
-			}
 			previous = current
 		}
 	}

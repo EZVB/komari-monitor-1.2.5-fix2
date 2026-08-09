@@ -146,14 +146,10 @@ func recordDedupKey(rec models.Record) string {
 }
 
 type trafficTotalPoint struct {
-	Time          time.Time
-	TotalUp       int64
-	TotalDown     int64
-	Uptime        int64
-	XrayTotalUp   int64
-	XrayTotalDown int64
-	XrayBootTime  int64
-	XrayAvailable bool
+	Time      time.Time
+	TotalUp   int64
+	TotalDown int64
+	Uptime    int64
 }
 
 type cachedTrafficSummary struct {
@@ -163,19 +159,12 @@ type cachedTrafficSummary struct {
 func summarizeCachedTraffic(reports []v1.Report) cachedTrafficSummary {
 	points := make([]trafficTotalPoint, 0, len(reports))
 	for _, report := range reports {
-		point := trafficTotalPoint{
+		points = append(points, trafficTotalPoint{
 			Time:      report.UpdatedAt,
 			TotalUp:   report.Network.TotalUp,
 			TotalDown: report.Network.TotalDown,
 			Uptime:    report.Uptime,
-		}
-		if report.Xray != nil {
-			point.XrayTotalUp = report.Xray.TotalUp
-			point.XrayTotalDown = report.Xray.TotalDown
-			point.XrayBootTime = report.Xray.BootTime
-			point.XrayAvailable = true
-		}
-		points = append(points, point)
+		})
 	}
 	sort.SliceStable(points, func(i, j int) bool {
 		return points[i].Time.Before(points[j].Time)
@@ -184,15 +173,11 @@ func summarizeCachedTraffic(reports []v1.Report) cachedTrafficSummary {
 }
 
 type previousTrafficRecord struct {
-	Client        string           `gorm:"column:client"`
-	Time          models.LocalTime `gorm:"column:time"`
-	NetTotalUp    int64            `gorm:"column:net_total_up"`
-	NetTotalDown  int64            `gorm:"column:net_total_down"`
-	Uptime        int64            `gorm:"column:uptime"`
-	XrayTotalUp   int64            `gorm:"column:xray_total_up"`
-	XrayTotalDown int64            `gorm:"column:xray_total_down"`
-	XrayBootTime  int64            `gorm:"column:xray_boot_time"`
-	XrayAvailable bool             `gorm:"column:xray_available"`
+	Client       string           `gorm:"column:client"`
+	Time         models.LocalTime `gorm:"column:time"`
+	NetTotalUp   int64            `gorm:"column:net_total_up"`
+	NetTotalDown int64            `gorm:"column:net_total_down"`
+	Uptime       int64            `gorm:"column:uptime"`
 }
 
 func fillTrafficDeltas(db *gorm.DB, records []models.Record, trafficByRecord map[string]cachedTrafficSummary) error {
@@ -225,16 +210,11 @@ func fillTrafficDeltas(db *gorm.DB, records []models.Record, trafficByRecord map
 		for _, index := range indexes {
 			key := recordDedupKey(records[index])
 			if summary, ok := trafficByRecord[key]; ok && len(summary.Points) > 0 {
-				var systemUp, systemDown, xrayUp, xrayDown int64
 				if previous, exists := previousByClient[records[index].Client]; exists {
-					systemUp, systemDown, xrayUp, xrayDown = sumCachedTrafficDeltas(summary, &previous)
+					records[index].TrafficUp, records[index].TrafficDown = sumCachedTrafficDeltas(summary, &previous)
 				} else {
-					systemUp, systemDown, xrayUp, xrayDown = sumCachedTrafficDeltas(summary, nil)
+					records[index].TrafficUp, records[index].TrafficDown = sumCachedTrafficDeltas(summary, nil)
 				}
-				records[index].TrafficUp = systemUp
-				records[index].TrafficDown = systemDown
-				records[index].XrayTrafficUp = xrayUp
-				records[index].XrayTrafficDown = xrayDown
 				continue
 			}
 
@@ -245,56 +225,37 @@ func fillTrafficDeltas(db *gorm.DB, records []models.Record, trafficByRecord map
 			systemRestarted := counterOwnerRestarted(records[index].Uptime, previous.Uptime)
 			records[index].TrafficUp = utils.ComputeTrafficDeltaWithReset(records[index].NetTotalUp, previous.NetTotalUp, systemRestarted)
 			records[index].TrafficDown = utils.ComputeTrafficDeltaWithReset(records[index].NetTotalDown, previous.NetTotalDown, systemRestarted)
-			if records[index].XrayAvailable && previous.XrayAvailable {
-				xrayRestarted := xrayCounterRestarted(records[index].XrayBootTime, previous.XrayBootTime)
-				records[index].XrayTrafficUp = utils.ComputeTrafficDeltaWithReset(records[index].XrayTotalUp, previous.XrayTotalUp, xrayRestarted)
-				records[index].XrayTrafficDown = utils.ComputeTrafficDeltaWithReset(records[index].XrayTotalDown, previous.XrayTotalDown, xrayRestarted)
-			}
 		}
 	}
 
 	return nil
 }
 
-func sumCachedTrafficDeltas(summary cachedTrafficSummary, previous *previousTrafficRecord) (int64, int64, int64, int64) {
+func sumCachedTrafficDeltas(summary cachedTrafficSummary, previous *previousTrafficRecord) (int64, int64) {
 	if len(summary.Points) == 0 {
-		return 0, 0, 0, 0
+		return 0, 0
 	}
 
 	startIndex := 0
 	var previousUp int64
 	var previousDown int64
 	var previousUptime int64
-	var previousXrayUp int64
-	var previousXrayDown int64
-	var previousXrayBootTime int64
-	var previousXrayAvailable bool
 	var previousTime time.Time
 	if previous != nil {
 		previousUp = previous.NetTotalUp
 		previousDown = previous.NetTotalDown
 		previousUptime = previous.Uptime
-		previousXrayUp = previous.XrayTotalUp
-		previousXrayDown = previous.XrayTotalDown
-		previousXrayBootTime = previous.XrayBootTime
-		previousXrayAvailable = previous.XrayAvailable
 		previousTime = previous.Time.ToTime()
 	} else {
 		previousUp = summary.Points[0].TotalUp
 		previousDown = summary.Points[0].TotalDown
 		previousUptime = summary.Points[0].Uptime
-		previousXrayUp = summary.Points[0].XrayTotalUp
-		previousXrayDown = summary.Points[0].XrayTotalDown
-		previousXrayBootTime = summary.Points[0].XrayBootTime
-		previousXrayAvailable = summary.Points[0].XrayAvailable
 		previousTime = summary.Points[0].Time
 		startIndex = 1
 	}
 
 	var totalUp int64
 	var totalDown int64
-	var totalXrayUp int64
-	var totalXrayDown int64
 	for _, point := range summary.Points[startIndex:] {
 		if !point.Time.After(previousTime) {
 			continue
@@ -302,31 +263,16 @@ func sumCachedTrafficDeltas(summary cachedTrafficSummary, previous *previousTraf
 		systemRestarted := counterOwnerRestarted(point.Uptime, previousUptime)
 		totalUp += utils.ComputeTrafficDeltaWithReset(point.TotalUp, previousUp, systemRestarted)
 		totalDown += utils.ComputeTrafficDeltaWithReset(point.TotalDown, previousDown, systemRestarted)
-		if point.XrayAvailable {
-			if previousXrayAvailable {
-				xrayRestarted := xrayCounterRestarted(point.XrayBootTime, previousXrayBootTime)
-				totalXrayUp += utils.ComputeTrafficDeltaWithReset(point.XrayTotalUp, previousXrayUp, xrayRestarted)
-				totalXrayDown += utils.ComputeTrafficDeltaWithReset(point.XrayTotalDown, previousXrayDown, xrayRestarted)
-			}
-			previousXrayUp = point.XrayTotalUp
-			previousXrayDown = point.XrayTotalDown
-			previousXrayBootTime = point.XrayBootTime
-			previousXrayAvailable = true
-		}
 		previousUp = point.TotalUp
 		previousDown = point.TotalDown
 		previousUptime = point.Uptime
 		previousTime = point.Time
 	}
-	return totalUp, totalDown, totalXrayUp, totalXrayDown
+	return totalUp, totalDown
 }
 
 func counterOwnerRestarted(current, previous int64) bool {
 	return current > 0 && previous > 0 && current < previous
-}
-
-func xrayCounterRestarted(currentBootTime, previousBootTime int64) bool {
-	return currentBootTime > 0 && previousBootTime > 0 && currentBootTime != previousBootTime
 }
 
 func getLatestTrafficRecordsBefore(db *gorm.DB, clientUUIDs []string, before time.Time) (map[string]previousTrafficRecord, error) {
@@ -358,7 +304,7 @@ func latestTrafficRecordsBeforeFromTable(db *gorm.DB, table string, clientUUIDs 
 		Group("client")
 
 	err := db.Table(table+" AS r").
-		Select("r.client, r.time, r.net_total_up, r.net_total_down, r.uptime, r.xray_total_up, r.xray_total_down, r.xray_boot_time, r.xray_available").
+		Select("r.client, r.time, r.net_total_up, r.net_total_down, r.uptime").
 		Joins("JOIN (?) AS latest ON latest.client = r.client AND latest.time = r.time", latestPerClient).
 		Find(&records).Error
 	return records, err

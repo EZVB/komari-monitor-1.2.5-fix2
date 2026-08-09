@@ -35,12 +35,6 @@ func TestCounterOwnerRestartedRequiresUptimeRollback(t *testing.T) {
 	assert.False(t, counterOwnerRestarted(0, 250))
 }
 
-func TestXrayCounterRestartedRequiresBootTimeChange(t *testing.T) {
-	assert.True(t, xrayCounterRestarted(200, 100))
-	assert.False(t, xrayCounterRestarted(100, 100))
-	assert.False(t, xrayCounterRestarted(0, 100))
-}
-
 func TestReportSaveLockSerializesSameClient(t *testing.T) {
 	clientUUID := "client-lock-same"
 	lock := getReportSaveLock(clientUUID)

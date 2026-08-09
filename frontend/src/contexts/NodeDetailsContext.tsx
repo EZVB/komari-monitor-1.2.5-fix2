@@ -25,7 +25,6 @@ export type NodeDetail = {
   billing_cycle: number;
   traffic_limit: number;
   traffic_limit_type: "sum" | "max" | "min" | "up" | "down";
-  traffic_source: "system" | "xray";
   traffic_multiplier: number;
   traffic_reset_day: number;
   traffic_initial: number;

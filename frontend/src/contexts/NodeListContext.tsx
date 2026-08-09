@@ -45,7 +45,6 @@ export type NodeBasicInfo = {
   traffic_limit: number;
   /** 流量阈值类型 */
   traffic_limit_type: undefined | "sum" | "max" | "min" | "up" | "down";
-  traffic_source: "system" | "xray";
   traffic_multiplier: number;
   traffic_reset_day: number;
   traffic_initial: number;
@@ -140,7 +139,6 @@ export const NodeListProvider: React.FC<{ children: React.ReactNode }> = ({
           group: n.group ?? "",
           traffic_limit: n.traffic_limit ?? 0,
           traffic_limit_type: n.traffic_limit_type,
-          traffic_source: n.traffic_source === "xray" ? "xray" : "system",
           traffic_multiplier: n.traffic_multiplier ?? 0,
           traffic_reset_day: n.traffic_reset_day ?? 0,
           traffic_initial: n.traffic_initial ?? 0,

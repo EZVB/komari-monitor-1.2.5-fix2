@@ -198,32 +198,3 @@ func TestGetClientTrafficInRangePrefersRawSlotOverZeroLongTermSlot(t *testing.T)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(110), used)
 }
-
-func TestGetClientTrafficInRangeUsesSelectedXraySource(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	assert.NoError(t, err)
-	assert.NoError(t, db.AutoMigrate(&models.Record{}))
-	assert.NoError(t, db.Table("records_long_term").AutoMigrate(&models.Record{}))
-
-	clientUUID := "client-xray"
-	start := time.Date(2026, 6, 6, 0, 0, 0, 0, time.UTC)
-	records := []models.Record{
-		{Client: clientUUID, Time: models.FromTime(start.Add(-time.Minute)), XrayTotalUp: 100, XrayTotalDown: 200, XrayBootTime: 1000, XrayAvailable: true},
-		{Client: clientUUID, Time: models.FromTime(start), XrayTotalUp: 140, XrayTotalDown: 260, XrayBootTime: 1000, XrayAvailable: true},
-		{Client: clientUUID, Time: models.FromTime(start.Add(5 * time.Minute)), XrayTotalUp: 170, XrayTotalDown: 300, XrayBootTime: 1000, XrayAvailable: true},
-	}
-	for _, record := range records {
-		assert.NoError(t, db.Create(&record).Error)
-	}
-
-	used, err := getClientTrafficInRangeBySourceWithDB(
-		db,
-		clientUUID,
-		"sum",
-		models.TrafficSourceXray,
-		start,
-		start.Add(10*time.Minute),
-	)
-	assert.NoError(t, err)
-	assert.Equal(t, int64(170), used)
-}

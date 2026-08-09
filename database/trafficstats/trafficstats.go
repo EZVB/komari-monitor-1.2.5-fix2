@@ -29,7 +29,6 @@ type cacheKey struct {
 	initialAtUnix  int64
 	limitType      string
 	multiplier     float64
-	source         string
 }
 
 type cacheEntry struct {
@@ -129,13 +128,11 @@ func CurrentWithDB(
 	now = now.In(models.GetAppLocation())
 	resetDay := ResolveResetDay(client)
 	cycleStart := CycleStartForDay(now, resetDay)
-	source := normalizeTrafficSource(client.TrafficSource)
-	up, down, err := recordstore.GetTrafficTotalsInRangeBySourceWithDB(
+	up, down, err := recordstore.GetTrafficTotalsInRangeWithDB(
 		db,
 		client.UUID,
 		cycleStart,
 		now,
-		source,
 	)
 	if err != nil {
 		return Usage{}, err
@@ -154,12 +151,11 @@ func CurrentWithDB(
 		!initialAt.After(now) {
 		initial = client.TrafficInitial
 		accountedUp, accountedDown, err =
-			recordstore.GetTrafficTotalsInRangeBySourceWithDB(
+			recordstore.GetTrafficTotalsInRangeWithDB(
 				db,
 				client.UUID,
 				initialAt,
 				now,
-				source,
 			)
 		if err != nil {
 			return Usage{}, err
@@ -203,15 +199,7 @@ func buildCacheKey(
 		initialAtUnix:  initialAt.UnixNano(),
 		limitType:      strings.ToLower(client.TrafficLimitType),
 		multiplier:     client.TrafficMultiplier,
-		source:         normalizeTrafficSource(client.TrafficSource),
 	}
-}
-
-func normalizeTrafficSource(source string) string {
-	if strings.EqualFold(strings.TrimSpace(source), models.TrafficSourceXray) {
-		return models.TrafficSourceXray
-	}
-	return models.TrafficSourceSystem
 }
 
 func clampedMonthDay(

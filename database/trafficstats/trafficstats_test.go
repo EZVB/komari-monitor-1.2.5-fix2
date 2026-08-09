@@ -136,46 +136,6 @@ func TestApplyTrafficMultiplierUsesAdditionalMultiples(t *testing.T) {
 	assert.Equal(t, int64(250), applyTrafficMultiplier(100, 1.5))
 }
 
-func TestCurrentWithDBUsesSelectedXraySource(t *testing.T) {
-	db := newTrafficStatsTestDB(t)
-	location := models.GetAppLocation()
-	now := time.Date(2026, 7, 26, 12, 0, 0, 0, location)
-	cycleStart := time.Date(2026, 7, 20, 0, 0, 0, 0, location)
-	client := models.Client{
-		UUID:             "xray-source",
-		TrafficLimitType: "sum",
-		TrafficResetDay:  20,
-		TrafficSource:    models.TrafficSourceXray,
-	}
-
-	require.NoError(t, db.Create(&models.Record{
-		Client:        client.UUID,
-		Time:          models.FromTime(cycleStart.Add(-time.Minute)),
-		NetTotalUp:    1000,
-		NetTotalDown:  2000,
-		XrayTotalUp:   100,
-		XrayTotalDown: 200,
-		XrayBootTime:  10,
-		XrayAvailable: true,
-	}).Error)
-	require.NoError(t, db.Create(&models.Record{
-		Client:        client.UUID,
-		Time:          models.FromTime(cycleStart.Add(time.Minute)),
-		NetTotalUp:    5000,
-		NetTotalDown:  8000,
-		XrayTotalUp:   130,
-		XrayTotalDown: 260,
-		XrayBootTime:  10,
-		XrayAvailable: true,
-	}).Error)
-
-	usage, err := CurrentWithDB(db, client, now)
-	require.NoError(t, err)
-	assert.Equal(t, int64(30), usage.Up)
-	assert.Equal(t, int64(60), usage.Down)
-	assert.Equal(t, int64(90), usage.Used)
-}
-
 func newTrafficStatsTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 

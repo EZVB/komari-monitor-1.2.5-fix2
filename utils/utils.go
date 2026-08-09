@@ -131,12 +131,6 @@ func AverageReport(uuid string, time time.Time, records []v1.Report, topPercenta
 		Connections:    sumConnections / recordsToAverageCount,
 		ConnectionsUdp: sumConnectionsUDP / recordsToAverageCount,
 	}
-	if latest.Xray != nil {
-		newRecord.XrayTotalUp = latest.Xray.TotalUp
-		newRecord.XrayTotalDown = latest.Xray.TotalDown
-		newRecord.XrayBootTime = latest.Xray.BootTime
-		newRecord.XrayAvailable = true
-	}
 	return newRecord
 }
 

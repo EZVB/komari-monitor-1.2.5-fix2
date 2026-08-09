@@ -174,43 +174,6 @@ func TestSaveClientReportToDBCountsCounterRollbackAfterRestart(t *testing.T) {
 	assert.Equal(t, int64(55), saved.TrafficDown)
 }
 
-func TestSaveClientReportToDBStoresIndependentXrayDelta(t *testing.T) {
-	resetReportCache(t)
-	db := openReportCacheTestDB(t)
-
-	clientUUID := "client-cached-xray"
-	now := time.Date(2026, 6, 13, 12, 0, 0, 0, time.UTC)
-	require.NoError(t, db.Create(&models.Record{
-		Client:        clientUUID,
-		Time:          models.FromTime(now.Add(-2 * time.Minute)),
-		XrayTotalUp:   100,
-		XrayTotalDown: 200,
-		XrayBootTime:  1000,
-		XrayAvailable: true,
-	}).Error)
-
-	Records.Set(clientUUID, []v1.Report{
-		{
-			UpdatedAt: now.Add(-30 * time.Second),
-			Xray:      &v1.XrayTrafficReport{TotalUp: 130, TotalDown: 250, BootTime: 1000},
-		},
-		{
-			UpdatedAt: now.Add(-10 * time.Second),
-			Xray:      &v1.XrayTrafficReport{TotalUp: 170, TotalDown: 280, BootTime: 1000},
-		},
-	}, cache.DefaultExpiration)
-
-	require.NoError(t, saveClientReportToDB(db, now))
-
-	var saved models.Record
-	require.NoError(t, db.Where("client = ? AND time = ?", clientUUID, models.FromTime(now)).First(&saved).Error)
-	assert.True(t, saved.XrayAvailable)
-	assert.Equal(t, int64(170), saved.XrayTotalUp)
-	assert.Equal(t, int64(280), saved.XrayTotalDown)
-	assert.Equal(t, int64(70), saved.XrayTrafficUp)
-	assert.Equal(t, int64(80), saved.XrayTrafficDown)
-}
-
 func TestSaveClientReportToDBSumsCachedTrafficWithoutPersistedBaseline(t *testing.T) {
 	resetReportCache(t)
 	db := openReportCacheTestDB(t)

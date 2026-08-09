@@ -144,34 +144,22 @@ func TestCompactRecordPreservesExactTrafficDelta(t *testing.T) {
 
 	records := []models.Record{
 		{
-			Client:          uuid,
-			Time:            models.FromTime(now),
-			NetTotalUp:      100,
-			NetTotalDown:    200,
-			Uptime:          100,
-			TrafficUp:       0,
-			TrafficDown:     0,
-			XrayTotalUp:     300,
-			XrayTotalDown:   400,
-			XrayBootTime:    1_000,
-			XrayAvailable:   true,
-			XrayTrafficUp:   0,
-			XrayTrafficDown: 0,
+			Client:       uuid,
+			Time:         models.FromTime(now),
+			NetTotalUp:   100,
+			NetTotalDown: 200,
+			Uptime:       100,
+			TrafficUp:    0,
+			TrafficDown:  0,
 		},
 		{
-			Client:          uuid,
-			Time:            models.FromTime(now.Add(5 * time.Minute)),
-			NetTotalUp:      150,
-			NetTotalDown:    260,
-			Uptime:          400,
-			TrafficUp:       50,
-			TrafficDown:     60,
-			XrayTotalUp:     325,
-			XrayTotalDown:   450,
-			XrayBootTime:    1_000,
-			XrayAvailable:   true,
-			XrayTrafficUp:   25,
-			XrayTrafficDown: 50,
+			Client:       uuid,
+			Time:         models.FromTime(now.Add(5 * time.Minute)),
+			NetTotalUp:   150,
+			NetTotalDown: 260,
+			Uptime:       400,
+			TrafficUp:    50,
+			TrafficDown:  60,
 		},
 		{
 			Client:       uuid,
@@ -197,12 +185,6 @@ func TestCompactRecordPreservesExactTrafficDelta(t *testing.T) {
 	assert.Equal(t, int64(90), compacted[0].TrafficDown)
 	assert.Equal(t, int64(10), compacted[0].NetTotalUp)
 	assert.Equal(t, int64(30), compacted[0].NetTotalDown)
-	assert.Equal(t, int64(325), compacted[0].XrayTotalUp)
-	assert.Equal(t, int64(450), compacted[0].XrayTotalDown)
-	assert.Equal(t, int64(25), compacted[0].XrayTrafficUp)
-	assert.Equal(t, int64(50), compacted[0].XrayTrafficDown)
-	assert.Equal(t, int64(1_000), compacted[0].XrayBootTime)
-	assert.True(t, compacted[0].XrayAvailable)
 	assert.True(t, compacted[0].Time.ToTime().Equal(records[2].Time.ToTime().Truncate(15*time.Minute)))
 }
 

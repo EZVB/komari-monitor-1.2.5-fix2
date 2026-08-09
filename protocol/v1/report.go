@@ -15,21 +15,20 @@ type IPAddress struct {
 }
 
 type Report struct {
-	UUID        string             `json:"uuid,omitempty"`
-	CPU         CPUReport          `json:"cpu"`
-	Ram         RamReport          `json:"ram"`
-	Swap        RamReport          `json:"swap"`
-	Load        LoadReport         `json:"load"`
-	Disk        DiskReport         `json:"disk"`
-	Network     NetworkReport      `json:"network"`
-	Xray        *XrayTrafficReport `json:"xray,omitempty"`
-	Connections ConnectionsReport  `json:"connections"`
-	GPU         *GPUDetailReport   `json:"gpu,omitempty"`
-	Uptime      int64              `json:"uptime"`
-	Process     int                `json:"process"`
-	Message     string             `json:"message"`
-	Method      string             `json:"method,omitempty"`
-	UpdatedAt   time.Time          `json:"updated_at"`
+	UUID        string            `json:"uuid,omitempty"`
+	CPU         CPUReport         `json:"cpu"`
+	Ram         RamReport         `json:"ram"`
+	Swap        RamReport         `json:"swap"`
+	Load        LoadReport        `json:"load"`
+	Disk        DiskReport        `json:"disk"`
+	Network     NetworkReport     `json:"network"`
+	Connections ConnectionsReport `json:"connections"`
+	GPU         *GPUDetailReport  `json:"gpu,omitempty"`
+	Uptime      int64             `json:"uptime"`
+	Process     int               `json:"process"`
+	Message     string            `json:"message"`
+	Method      string            `json:"method,omitempty"`
+	UpdatedAt   time.Time         `json:"updated_at"`
 }
 
 type CPUReport struct {
@@ -80,14 +79,6 @@ type NetworkReport struct {
 	Down      int64 `json:"down"`
 	TotalUp   int64 `json:"totalUp"`
 	TotalDown int64 `json:"totalDown"`
-}
-
-// XrayTrafficReport contains cumulative Xray protocol counters. Agents that do
-// not collect Xray metrics can omit this field without changing system traffic.
-type XrayTrafficReport struct {
-	TotalUp   int64 `json:"totalUp"`
-	TotalDown int64 `json:"totalDown"`
-	BootTime  int64 `json:"bootTime,omitempty"`
 }
 
 type ConnectionsReport struct {

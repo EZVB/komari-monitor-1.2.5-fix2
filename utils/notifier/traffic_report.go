@@ -132,13 +132,7 @@ func sendTrafficReport(daily, weekly, monthly bool) {
 			continue
 		}
 
-		used, err := getClientTrafficInRangeBySource(
-			n.Client,
-			c.TrafficLimitType,
-			c.TrafficSource,
-			start,
-			end,
-		)
+		used, err := getClientTrafficInRange(n.Client, c.TrafficLimitType, start, end)
 		if err != nil {
 			log.Printf("Failed to compute traffic for client %s (%s): %v", n.Client, label, err)
 			continue
@@ -182,34 +176,11 @@ func getClientTrafficInRange(clientUUID string, trafficType string, start, end t
 }
 
 func getClientTrafficInRangeWithDB(db *gorm.DB, clientUUID string, trafficType string, start, end time.Time) (int64, error) {
-	return getClientTrafficInRangeBySourceWithDB(
-		db,
-		clientUUID,
-		trafficType,
-		models.TrafficSourceSystem,
-		start,
-		end,
-	)
-}
-
-func getClientTrafficInRangeBySource(clientUUID string, trafficType string, source string, start, end time.Time) (int64, error) {
-	return getClientTrafficInRangeBySourceWithDB(
-		dbcore.GetDBInstance(),
-		clientUUID,
-		trafficType,
-		source,
-		start,
-		end,
-	)
-}
-
-func getClientTrafficInRangeBySourceWithDB(db *gorm.DB, clientUUID string, trafficType string, source string, start, end time.Time) (int64, error) {
-	up, down, err := recordstore.GetTrafficTotalsInRangeBySourceWithDB(
+	up, down, err := recordstore.GetTrafficTotalsInRangeWithDB(
 		db,
 		clientUUID,
 		start,
 		end,
-		source,
 	)
 	if err != nil {
 		return 0, err

@@ -294,17 +294,6 @@ func SaveClient(updates map[string]interface{}) error {
 			return fmt.Errorf("unsupported traffic_limit_type: %s", val)
 		}
 	}
-	if v, exists := updates["traffic_source"]; exists {
-		val, ok := v.(string)
-		if !ok {
-			return fmt.Errorf("traffic_source must be a string")
-		}
-		switch val {
-		case models.TrafficSourceSystem, models.TrafficSourceXray:
-		default:
-			return fmt.Errorf("unsupported traffic_source: %s", val)
-		}
-	}
 	if v, exists := updates["traffic_multiplier"]; exists {
 		val, ok := v.(float64)
 		if !ok || math.IsNaN(val) || math.IsInf(val, 0) || val < 0 || val > 999999 {
