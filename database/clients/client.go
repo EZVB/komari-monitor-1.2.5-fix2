@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/komari-monitor/komari/database/dbcore"
@@ -327,6 +328,13 @@ func SaveClient(updates map[string]interface{}) error {
 	} else {
 		delete(updates, "traffic_initial_at")
 	}
+	if v, exists := updates["expired_at"]; exists {
+		expiredAt, err := normalizeExpirationDate(v)
+		if err != nil {
+			return err
+		}
+		updates["expired_at"] = expiredAt
+	}
 
 	updates["updated_at"] = time.Now()
 
@@ -336,6 +344,44 @@ func SaveClient(updates map[string]interface{}) error {
 	}
 	trafficstats.Invalidate(clientUUID)
 	return nil
+}
+
+func normalizeExpirationDate(value interface{}) (interface{}, error) {
+	if value == nil {
+		return nil, nil
+	}
+
+	location := models.GetAppLocation()
+	var date time.Time
+	switch typed := value.(type) {
+	case string:
+		raw := strings.TrimSpace(typed)
+		if raw == "" {
+			return nil, nil
+		}
+		if len(raw) < len("2006-01-02") ||
+			(len(raw) > len("2006-01-02") && raw[10] != 'T' && raw[10] != ' ') {
+			return nil, fmt.Errorf("expired_at must use YYYY-MM-DD format")
+		}
+		parsed, err := time.ParseInLocation(
+			"2006-01-02",
+			raw[:len("2006-01-02")],
+			location,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("invalid expired_at date: %w", err)
+		}
+		date = parsed
+	case models.LocalTime:
+		date = typed.ToTime().In(location)
+	case time.Time:
+		date = typed.In(location)
+	default:
+		return nil, fmt.Errorf("expired_at must be a date string, time value, or null")
+	}
+
+	year, month, day := date.Date()
+	return models.FromTime(time.Date(year, month, day, 0, 0, 0, 0, location)), nil
 }
 
 func numericFloat64(value interface{}) (float64, bool) {

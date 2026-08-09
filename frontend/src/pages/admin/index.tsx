@@ -2188,9 +2188,9 @@ function EditButton({ node }: { node: NodeDetail }) {
   const [trafficResetDayInput, setTrafficResetDayInput] = useState("");
   const [trafficInitialInput, setTrafficInitialInput] = useState("");
   const fallbackTrafficResetDay = React.useMemo(() => {
-    if (!node.expired_at) return 1;
-    const expiredAt = new Date(node.expired_at);
-    return Number.isNaN(expiredAt.getTime()) ? 1 : expiredAt.getDate();
+    const expiredAt = dateInputValue(node.expired_at);
+    const day = Number(expiredAt.slice(8, 10));
+    return Number.isInteger(day) && day >= 1 && day <= 31 ? day : 1;
   }, [node.expired_at]);
 
   React.useEffect(() => {
@@ -2800,9 +2800,7 @@ function BillingButton({ node }: { node: NodeDetail }) {
         (formData.get("billingCycle") as string) || "30"
       );
       const expiredAtValue = (formData.get("expiredAt") as string) || "";
-      const expiredAt = expiredAtValue
-        ? new Date(`${expiredAtValue}T00:00:00`).toISOString()
-        : null;
+      const expiredAt = expiredAtValue || null;
       const currencyValue = (formData.get("currency") as string) || "$";
 
       await fetch(`/api/admin/client/${node.uuid}/edit`, {
@@ -2889,9 +2887,7 @@ function BillingButton({ node }: { node: NodeDetail }) {
             <TextField.Root
               name="expiredAt"
               defaultValue={
-                node.expired_at
-                  ? new Date(node.expired_at).toISOString().slice(0, 10)
-                  : "0001-01-01"
+                dateInputValue(node.expired_at) || "0001-01-01"
               }
               type="date"
             >
@@ -2906,7 +2902,7 @@ function BillingButton({ node }: { node: NodeDetail }) {
                     if (dateInput) {
                       const futureDate = new Date();
                       futureDate.setFullYear(futureDate.getFullYear() + 200);
-                      dateInput.value = futureDate.toISOString().slice(0, 10);
+                      dateInput.value = localDateValue(futureDate);
                     }
                   }}
                 >
@@ -2929,4 +2925,16 @@ function BillingButton({ node }: { node: NodeDetail }) {
       </Dialog.Content>
     </Dialog.Root>
   );
+}
+
+function dateInputValue(value?: string | null): string {
+  const match = value?.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] ?? "";
+}
+
+function localDateValue(date: Date): string {
+  const year = String(date.getFullYear()).padStart(4, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
