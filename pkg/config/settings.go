@@ -83,5 +83,4 @@ const (
 	RecordPreserveTimeKey         = "record_preserve_time"
 	PingRecordPreserveTimeKey     = "ping_record_preserve_time"
 	UpdatedAtKey                  = "updated_at"
-	XtermjsSettingsKey            = "xtermjs_settings"
 )

@@ -6,7 +6,6 @@ import (
 	"github.com/komari-monitor/komari/web/api/admin"
 	"github.com/komari-monitor/komari/web/api/client"
 	public_api "github.com/komari-monitor/komari/web/api/public"
-	"github.com/komari-monitor/komari/web/api/terminal"
 	"github.com/komari-monitor/komari/web/public"
 	jsonRpc "github.com/komari-monitor/komari/web/rpc/jsonrpc"
 )
@@ -69,7 +68,6 @@ func registerAgentRoutes(r *gin.Engine) {
 		tokenAuthorized.POST("/report", client.UploadReport)
 		tokenAuthorized.GET("/v2/rpc", client.WebSocketV2RPC)
 		tokenAuthorized.POST("/v2/rpc", client.UploadV2RPC)
-		tokenAuthorized.GET("/terminal", terminal.EstablishConnection)
 
 		// JSON 接口 -> RPC2 (client: 命名空间)。
 		tokenAuthorized.GET("/ping/tasks", jsonRpc.Bind("client:getPingTasks", jsonRpc.WithRaw()))
@@ -125,8 +123,6 @@ func registerAdminRoutes(r *gin.Engine) {
 	{
 		settings.GET("/", jsonRpc.Bind("admin:getSettings"))
 		settings.POST("/", jsonRpc.Bind("admin:editSettings"))
-		settings.GET("/xtermjs", jsonRpc.Bind("admin:getXtermjsSettings"))
-		settings.POST("/xtermjs", jsonRpc.Bind("admin:setXtermjsSettings", jsonRpc.WithMessage("settings saved")))
 		settings.POST("/oidc", jsonRpc.Bind("admin:setOidcProvider"))
 		settings.GET("/oidc", jsonRpc.Bind("admin:getOidcProvider", jsonRpc.WithQuery("provider")))
 		settings.POST("/message-sender", jsonRpc.Bind("admin:setMessageSenderProvider"))
@@ -154,7 +150,6 @@ func registerAdminRoutes(r *gin.Engine) {
 		clientGroup.POST("/:uuid/remove", jsonRpc.Bind("admin:removeClient", jsonRpc.WithPath("uuid")))
 		clientGroup.GET("/:uuid/token", jsonRpc.Bind("admin:getClientToken", jsonRpc.WithPath("uuid"), jsonRpc.WithFlat()))
 		clientGroup.POST("/order", jsonRpc.Bind("admin:orderClients"))
-		clientGroup.GET("/:uuid/terminal", api.RequireSensitive2FA(), terminal.RequestTerminal)
 	}
 
 	// records
@@ -173,17 +168,6 @@ func registerAdminRoutes(r *gin.Engine) {
 	}
 
 	g.GET("/logs", jsonRpc.Bind("admin:getLogs", jsonRpc.WithQuery("limit", "page")))
-
-	// clipboard
-	clipboardGroup := g.Group("/clipboard")
-	{
-		clipboardGroup.GET("/:id", jsonRpc.Bind("admin:getClipboard", jsonRpc.WithPath("id")))
-		clipboardGroup.GET("", jsonRpc.Bind("admin:listClipboard"))
-		clipboardGroup.POST("", jsonRpc.Bind("admin:createClipboard"))
-		clipboardGroup.POST("/:id", jsonRpc.Bind("admin:updateClipboard", jsonRpc.WithPath("id")))
-		clipboardGroup.POST("/remove", jsonRpc.Bind("admin:batchDeleteClipboard"))
-		clipboardGroup.POST("/:id/remove", jsonRpc.Bind("admin:deleteClipboard", jsonRpc.WithPath("id")))
-	}
 
 	// notifications
 	notificationGroup := g.Group("/notification")

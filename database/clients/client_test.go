@@ -71,3 +71,25 @@ func TestNormalizeExpirationDateAcceptsAutoRenewalTime(t *testing.T) {
 		t.Fatalf("normalizeExpirationDate(LocalTime) = %s, want local midnight", date)
 	}
 }
+
+func TestNewClientBillingDefaults(t *testing.T) {
+	now := time.Date(2026, time.August, 10, 15, 30, 0, 0, models.GetAppLocation())
+	client := newClient("client-id", "token", "test", now)
+
+	if client.Price != 0 {
+		t.Fatalf("Price = %v, want 0", client.Price)
+	}
+	if client.Currency != "¥" {
+		t.Fatalf("Currency = %q, want ¥", client.Currency)
+	}
+	if !client.AutoRenewal {
+		t.Fatal("AutoRenewal = false, want true")
+	}
+	expiredAt := client.ExpiredAt.ToTime()
+	if expiredAt.Year() != 2026 || expiredAt.Month() != time.August || expiredAt.Day() != 10 {
+		t.Fatalf("ExpiredAt = %s, want 2026-08-10", expiredAt)
+	}
+	if expiredAt.Hour() != 0 || expiredAt.Minute() != 0 || expiredAt.Second() != 0 {
+		t.Fatalf("ExpiredAt = %s, want local midnight", expiredAt)
+	}
+}

@@ -134,7 +134,6 @@
       "customColumns": "カスタム列",
       "deleting": "削除中...",
       "disableAutoUpdate": "自動更新を無効にする",
-      "disableWebSsh": "リモートコントロールを無効にする",
       "dragToReorder": "長押ししてドラッグで再配置",
       "editNodePrice": "請求書を編集",
       "emptyGuide": {
@@ -284,9 +283,6 @@
     "tomato": "トマト",
     "violet": "バイオレット",
     "yellow": "黄色"
-  },
-  "command_clipboard": {
-    "title": "コマンドクリップボード"
   },
   "common": {
     "about": "について",
@@ -999,34 +995,9 @@
       "target": "移行先データベース",
       "target_description": "ローカル SQLite を使用するか、メトリクスをリモート MariaDB / MySQL / PostgreSQL に保存します。",
       "title": "監視データベースのアップグレード"
-    },
-    "xtermjs": {
-      "convert_eol": "EOL を変換",
-      "cursor_blink": "カーソル点滅",
-      "custom_css": "カスタム CSS",
-      "custom_css_description": "ルールを書くときは .terminal-page または .terminal-xterm-host の接頭辞を推奨します。",
-      "font_family": "フォントファミリー",
-      "font_size": "フォントサイズ",
-      "reset_defaults": "ローカルの既定値に戻す",
-      "scrollback": "スクロールバック",
-      "terminal_padding": "ターミナルの余白",
-      "theme_json": "テーマ JSON",
-      "theme_json_description": "ここでは terminalOptions.theme のみ編集します。未知のキーは保存時にフィルターされます。",
-      "theme_json_filtered": "フィルタ済みテーマ JSON",
-      "theme_json_invalid": "無効なテーマ JSON",
-      "theme_json_must_be_object": "テーマ JSON は JSON オブジェクトである必要があります",
-      "title": "XtermJS",
-      "transparent_background": "透明背景",
-      "transparent_hint": "コンテナ背景も透明な場合にのみ透明化を有効にしてください。",
-      "transparent_theme_hint": "テーマ背景はまだ不透明です。rgba(...) または hsla(...) を使用してください。"
     }
   },
   "status_settings": "ステータス表示設定",
-  "terminal": {
-    "disconnect": "接続が切断されました",
-    "no_active_connection": "アクティブな接続はありません",
-    "title": "ターミナル"
-  },
   "market": {
     "add_source": "ソースを追加",
     "delete_source_confirm": "ソース {{name}} を削除しますか？",

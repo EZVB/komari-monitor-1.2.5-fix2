@@ -10,7 +10,6 @@ const (
 	MethodAgentPing       = "agent.ping"
 	MethodAgentMessage    = "agent.message"
 	MethodAgentEvent      = "agent.event"
-	MethodAgentTerminal   = "agent.terminal.request"
 	MethodAgentPull       = "agent.pull"
 )
 
@@ -79,10 +78,6 @@ type MessageParams struct {
 type EventParams struct {
 	Type string `json:"type"`
 	Data any    `json:"data,omitempty"`
-}
-
-type TerminalRequestParams struct {
-	RequestID string `json:"request_id"`
 }
 
 func Success(id any, result any) Response {

@@ -149,13 +149,7 @@ func CreateClient() (clientUUID, token string, err error) {
 	token = utils.GenerateToken()
 	clientUUID = uuid.New().String()
 
-	client := models.Client{
-		UUID:      clientUUID,
-		Token:     token,
-		Name:      "client_" + clientUUID[0:8],
-		CreatedAt: models.FromTime(time.Now()),
-		UpdatedAt: models.FromTime(time.Now()),
-	}
+	client := newClient(clientUUID, token, "client_"+clientUUID[0:8], time.Now())
 
 	err = db.Create(&client).Error
 	if err != nil {
@@ -174,13 +168,7 @@ func CreateClientWithName(name string) (clientUUID, token string, err error) {
 	db := dbcore.GetDBInstance()
 	token = utils.GenerateToken()
 	clientUUID = uuid.New().String()
-	client := models.Client{
-		UUID:      clientUUID,
-		Token:     token,
-		Name:      name,
-		CreatedAt: models.FromTime(time.Now()),
-		UpdatedAt: models.FromTime(time.Now()),
-	}
+	client := newClient(clientUUID, token, name, time.Now())
 
 	err = db.Create(&client).Error
 	if err != nil {
@@ -190,6 +178,24 @@ func CreateClientWithName(name string) (clientUUID, token string, err error) {
 		log.Println("Failed to apply default-on ping tasks to new client:", err)
 	}
 	return clientUUID, token, nil
+}
+
+func newClient(clientUUID, token, name string, now time.Time) models.Client {
+	location := models.GetAppLocation()
+	localNow := now.In(location)
+	year, month, day := localNow.Date()
+
+	return models.Client{
+		UUID:        clientUUID,
+		Token:       token,
+		Name:        name,
+		Price:       0,
+		Currency:    "¥",
+		ExpiredAt:   models.FromTime(time.Date(year, month, day, 0, 0, 0, 0, location)),
+		AutoRenewal: true,
+		CreatedAt:   models.FromTime(localNow),
+		UpdatedAt:   models.FromTime(localNow),
+	}
 }
 
 /*
