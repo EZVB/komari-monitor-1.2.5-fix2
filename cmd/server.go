@@ -15,7 +15,6 @@ import (
 	"github.com/komari-monitor/komari/pkg/corn"
 	"github.com/komari-monitor/komari/web/api"
 
-	"github.com/komari-monitor/komari/database"
 	"github.com/komari-monitor/komari/database/accounts"
 	"github.com/komari-monitor/komari/database/auditlog"
 	"github.com/komari-monitor/komari/database/dbcore"
@@ -31,7 +30,6 @@ import (
 	"github.com/komari-monitor/komari/utils/messageSender"
 	"github.com/komari-monitor/komari/utils/notifier"
 	"github.com/komari-monitor/komari/web/nezha"
-	"github.com/komari-monitor/komari/web/oauth"
 	report_cache "github.com/komari-monitor/komari/web/report"
 	"github.com/komari-monitor/komari/web/router"
 	"github.com/komari-monitor/komari/web/security"
@@ -70,8 +68,6 @@ func RunServer() {
 	go geoip.InitGeoIp()
 	go DoScheduledWork()
 	go messageSender.Initialize()
-	// oidcInit
-	go oauth.Initialize()
 
 	if conf.NezhaCompatEnabled {
 		go func() {
@@ -83,22 +79,6 @@ func RunServer() {
 	}
 
 	config.Subscribe(func(event config.ConfigEvent) {
-		if ok, t := config.IsChangedT[string](event, config.OAuthProviderKey); ok {
-			if t == "" || t == "none" {
-				t = "github"
-			}
-			oidcProvider, err := database.GetOidcConfigByName(t)
-			if err != nil {
-				log.Printf("Failed to get OIDC provider config: %v", err)
-			} else {
-				log.Printf("Using %s as OIDC provider", oidcProvider.Name)
-			}
-			err = oauth.LoadProvider(oidcProvider.Name, oidcProvider.Addition)
-			if err != nil {
-				auditlog.EventLog("error", fmt.Sprintf("Failed to load OIDC provider: %v", err))
-			}
-		}
-
 		if ok, t := config.IsChangedT[bool](event, config.NezhaCompatEnabledKey); ok {
 			if t {
 				l, _ := config.GetAs[string](config.NezhaCompatListenKey)

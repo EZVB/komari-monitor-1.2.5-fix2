@@ -2311,7 +2311,7 @@ function EditButton({ node }: { node: NodeDetail }) {
               onChange={setHidden}
             />
           </div>
-          <SettingCardCollapse title={t("admin.nodeEdit.trafficLimit")}>
+          <SettingCardCollapse title={t("admin.nodeEdit.trafficSettings")}>
             <SettingCardSelect
               bordless
               title={t("admin.nodeEdit.trafficLimitType")}

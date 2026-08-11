@@ -8,7 +8,7 @@ import {
   Switch,
 } from "@radix-ui/themes";
 import { useTranslation } from "react-i18next";
-import React, { useCallback, useEffect, useMemo, Suspense } from "react";
+import React, { useCallback, useMemo, Suspense } from "react";
 const NodeDisplay = React.lazy(() => import("../components/NodeDisplay"));
 import { formatBytes } from "@/utils/unitHelper";
 import { useLiveData } from "../contexts/LiveDataContext";
@@ -50,7 +50,7 @@ type StatusCardKey = keyof typeof STATUS_CARD_VISIBILITY_DEFAULTS;
 const Index = () => {
   const [t] = useTranslation();
   const { live_data } = useLiveData();
-  const { nodeList, isLoading, error, refresh } = useNodeList();
+  const { nodeList, isLoading, error } = useNodeList();
   const liveData = live_data?.data ?? EMPTY_LIVE_DATA;
   const onlineSet = useMemo(
     () => new Set(liveData.online),
@@ -143,35 +143,6 @@ const Index = () => {
     },
     [setStatusCardsVisibility],
   );
-
-  useEffect(() => {
-    let interval: number | undefined;
-    const stopPolling = () => {
-      if (interval !== undefined) {
-        window.clearInterval(interval);
-        interval = undefined;
-      }
-    };
-    const startPolling = () => {
-      if (interval === undefined && !document.hidden) {
-        interval = window.setInterval(refresh, 5000);
-      }
-    };
-    const handleVisibilityChange = () => {
-      stopPolling();
-      if (!document.hidden) {
-        refresh();
-        startPolling();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    startPolling();
-    return () => {
-      stopPolling();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [refresh]);
 
   if (isLoading) {
     return <Loading />;

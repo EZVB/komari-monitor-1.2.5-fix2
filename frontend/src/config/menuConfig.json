@@ -64,11 +64,6 @@
           "icon": "Palette"
         },
         {
-          "labelKey": "settings.sign_on.title",
-          "path": "/admin/settings/sign-on",
-          "icon": "CircleArrowRight"
-        },
-        {
           "labelKey": "settings.notification.title",
           "path": "/admin/settings/notification",
           "icon": "MessageCircleMore"

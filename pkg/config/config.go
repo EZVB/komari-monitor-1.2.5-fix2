@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -615,7 +616,18 @@ type ConfigSubscriber func(event ConfigEvent)
 var (
 	subscribersMu sync.RWMutex
 	subscribers   []ConfigSubscriber
+	revision      atomic.Uint64
 )
+
+// Revision changes whenever persisted application settings actually change.
+func Revision() uint64 {
+	return revision.Load()
+}
+
+// NotifyChanged marks externally stored public configuration as changed.
+func NotifyChanged() {
+	revision.Add(1)
+}
 
 // Subscribe registers a subscriber for all config events.
 func Subscribe(subscriber ConfigSubscriber) {
@@ -626,10 +638,31 @@ func Subscribe(subscriber ConfigSubscriber) {
 
 // publishEvent notifies all subscribers of a config change.
 func publishEvent(oldVal, newVal map[string]any) {
+	event := ConfigEvent{Old: oldVal, New: newVal}
+	changed := false
+	for key := range oldVal {
+		if event.IsChanged(key) {
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		for key := range newVal {
+			if event.IsChanged(key) {
+				changed = true
+				break
+			}
+		}
+	}
+	if !changed {
+		return
+	}
+	revision.Add(1)
+
 	subscribersMu.RLock()
-	defer subscribersMu.RUnlock()
-	for _, sub := range subscribers {
-		event := ConfigEvent{Old: oldVal, New: newVal}
+	snapshot := append([]ConfigSubscriber(nil), subscribers...)
+	subscribersMu.RUnlock()
+	for _, sub := range snapshot {
 		go sub(event)
 	}
 }

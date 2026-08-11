@@ -39,9 +39,6 @@ func GetPublicInfo() (map[string]interface{}, error) {
 	if !hasKey("theme") {
 		cst.Theme = "default"
 	}
-	if !hasKey("o_auth_provider") {
-		cst.OAuthProvider = "github"
-	}
 	if !hasKey("record_enabled") {
 		cst.RecordEnabled = true
 	}
@@ -131,9 +128,6 @@ func GetPublicInfo() (map[string]interface{}, error) {
 		"description":               cst.Description,
 		"custom_head":               cst.CustomHead,
 		"custom_body":               cst.CustomBody,
-		"oauth_enable":              cst.OAuthEnabled,
-		"oauth_provider":            cst.OAuthProvider,
-		"disable_password_login":    cst.DisablePasswordLogin,
 		"cors_origin_check_enabled": cst.CorsOriginCheckEnabled,
 		"record_enabled":            cst.RecordEnabled,
 		"record_preserve_time":      cst.RecordPreserveTime,

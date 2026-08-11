@@ -25,6 +25,7 @@ func DeleteClient(clientUuid string) error {
 		return err
 	}
 	trafficstats.Invalidate(clientUuid)
+	NotifyChanged()
 	return nil
 }
 
@@ -122,6 +123,7 @@ func SaveClientInfo(update map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
+	NotifyChanged()
 	return nil
 }
 
@@ -131,6 +133,7 @@ func EditClientName(clientUUID, clientName string) error {
 	if err != nil {
 		return err
 	}
+	NotifyChanged()
 	return nil
 }
 
@@ -140,6 +143,7 @@ func EditClientToken(clientUUID, token string) error {
 	if err != nil {
 		return err
 	}
+	NotifyChanged()
 	return nil
 }
 
@@ -158,6 +162,7 @@ func CreateClient() (clientUUID, token string, err error) {
 	if err := tasks.AddDefaultOnClientUUID(clientUUID); err != nil {
 		log.Println("Failed to apply default-on ping tasks to new client:", err)
 	}
+	NotifyChanged()
 	return clientUUID, token, nil
 }
 
@@ -177,6 +182,7 @@ func CreateClientWithName(name string) (clientUUID, token string, err error) {
 	if err := tasks.AddDefaultOnClientUUID(clientUUID); err != nil {
 		log.Println("Failed to apply default-on ping tasks to new client:", err)
 	}
+	NotifyChanged()
 	return clientUUID, token, nil
 }
 
@@ -247,6 +253,14 @@ func GetClientTokenByUUID(uuid string) (token string, err error) {
 func GetAllClientBasicInfo() (clients []models.Client, err error) {
 	db := dbcore.GetDBInstance()
 	err = db.Find(&clients).Error
+	if err != nil {
+		return nil, err
+	}
+	return clients, nil
+}
+
+func GetAllClientBasicInfoWithTraffic() (clients []models.Client, err error) {
+	clients, err = GetAllClientBasicInfo()
 	if err != nil {
 		return nil, err
 	}
@@ -338,6 +352,7 @@ func SaveClient(updates map[string]interface{}) error {
 		return err
 	}
 	trafficstats.Invalidate(clientUUID)
+	NotifyChanged()
 	return nil
 }
 

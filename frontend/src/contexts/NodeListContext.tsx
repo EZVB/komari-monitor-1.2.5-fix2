@@ -1,5 +1,6 @@
 import React from "react";
 import { useRPC2Call } from "./RPC2Context";
+import { useConfigRevisions } from "./ConfigRevisionContext";
 
 export type NodeBasicInfo = {
   /** 节点唯一标识符 */
@@ -92,8 +93,10 @@ export const NodeListProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
   const { call } = useRPC2Call();
+  const revisions = useConfigRevisions();
   const refreshSeqRef = React.useRef(0);
   const mountedRef = React.useRef(true);
+  const observedRevisionRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     mountedRef.current = true;
@@ -183,6 +186,18 @@ export const NodeListProvider: React.FC<{ children: React.ReactNode }> = ({
   React.useEffect(() => {
     refresh();
   }, [refresh]);
+
+  React.useEffect(() => {
+    if (revisions === null) return;
+    if (observedRevisionRef.current === null) {
+      observedRevisionRef.current = revisions.nodes;
+      return;
+    }
+    if (observedRevisionRef.current !== revisions.nodes) {
+      observedRevisionRef.current = revisions.nodes;
+      refresh();
+    }
+  }, [refresh, revisions]);
 
   const contextValue = React.useMemo(
     () => ({ nodeList, isLoading, error, refresh }),

@@ -46,7 +46,7 @@ func CheckTraffic() {
 		baseStep = 100
 	}
 
-	allClients, err := clients.GetAllClientBasicInfo()
+	allClients, err := clients.GetAllClientBasicInfoWithTraffic()
 	if err != nil {
 		return
 	}

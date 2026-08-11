@@ -302,7 +302,6 @@ func GetDBInstance() *gorm.DB {
 			&models.TrafficReportNotification{},
 			&models.PingRecord{},
 			&models.PingTask{},
-			&models.OidcProvider{},
 			&models.MessageSenderProvider{},
 			&models.ThemeConfiguration{},
 		)

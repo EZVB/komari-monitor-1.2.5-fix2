@@ -1,5 +1,6 @@
 import React from "react";
 import defaultTheme from "../../komari-theme.json";
+import { useConfigRevisions } from "./ConfigRevisionContext";
 //import { useRPC2Call } from "./RPC2Context";
 
 type ThemeField = {
@@ -38,9 +39,6 @@ export interface PublicInfo {
   custom_body: string;
   custom_head: string;
   description: string;
-  disable_password_login: boolean;
-  oauth_provider: string;
-  oauth_enable: boolean;
   metric_retention_days: number;
   sitename: string;
   private_site: boolean;
@@ -73,9 +71,14 @@ export const PublicInfoProvider: React.FC<{ children: React.ReactNode }> = ({
   const [publicInfo, setPublicInfo] = React.useState<PublicInfo | null>(null);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
+  const revisions = useConfigRevisions();
+  const refreshSeqRef = React.useRef(0);
+  const mountedRef = React.useRef(true);
+  const observedRevisionRef = React.useRef<number | null>(null);
   //const { call } = useRPC2Call();
   // 公共信息使用public，避免在私有站点的情况下RPC返回401
-  const refresh = () => {
+  const refresh = React.useCallback(() => {
+    const refreshSeq = ++refreshSeqRef.current;
     setError(null);
     setIsLoading(true);
     fetch("/api/public")
@@ -86,6 +89,7 @@ export const PublicInfoProvider: React.FC<{ children: React.ReactNode }> = ({
         return response.json();
       })
       .then((resp: Response) => {
+        if (!mountedRef.current || refreshSeq !== refreshSeqRef.current) return;
         if (resp && resp.data) {
           setPublicInfo(withThemeDefaults(resp.data));
         } else {
@@ -93,16 +97,37 @@ export const PublicInfoProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       })
       .catch((err) => {
+        if (!mountedRef.current || refreshSeq !== refreshSeqRef.current) return;
         setError(err.message || "An error occurred while fetching public info");
       })
       .finally(() => {
+        if (!mountedRef.current || refreshSeq !== refreshSeqRef.current) return;
         setIsLoading(false);
       });
-  };
+  }, []);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   React.useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
+
+  React.useEffect(() => {
+    if (revisions === null) return;
+    if (observedRevisionRef.current === null) {
+      observedRevisionRef.current = revisions.settings;
+      return;
+    }
+    if (observedRevisionRef.current !== revisions.settings) {
+      observedRevisionRef.current = revisions.settings;
+      refresh();
+    }
+  }, [refresh, revisions]);
 
   return (
     <PublicInfoContext.Provider value={{ publicInfo, isLoading, error, refresh }}>

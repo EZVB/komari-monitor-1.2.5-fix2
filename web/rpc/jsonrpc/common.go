@@ -213,6 +213,14 @@ func init() {
 	Register("getPublicInfo", getPublicInfo)
 	Register("getVersion", getVersion)
 	Register("getNodeRecentStatus", getNodeRecentStatus)
+	Register("getConfigRevisions", getConfigRevisions)
+}
+
+func getConfigRevisions(_ context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
+	return map[string]uint64{
+		"nodes":    clients.Revision(),
+		"settings": config.Revision(),
+	}, nil
 }
 
 func getNodes(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
@@ -294,7 +302,7 @@ func getNodesLatestStatus(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 	}
 
 	// Hidden 过滤
-	cinfo, err := clients.GetAllClientBasicInfo()
+	cinfo, err := clients.GetAllClientBasicInfoWithTraffic()
 	if err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to get client info", err.Error())
 	}
@@ -434,8 +442,6 @@ func getMe(ctx context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) 
 	var resp struct {
 		TwoFAEnabled bool   `json:"2fa_enabled"`
 		LoggedIn     bool   `json:"logged_in"`
-		SSOId        string `json:"sso_id"`
-		SSOType      string `json:"sso_type"`
 		Username     string `json:"username"`
 		UUID         string `json:"uuid"`
 	}
@@ -451,8 +457,6 @@ func getMe(ctx context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) 
 		}
 		resp.TwoFAEnabled = meta.User.TwoFactor != ""
 		resp.LoggedIn = true
-		resp.SSOId = meta.User.SSOID
-		resp.SSOType = meta.User.SSOType
 		resp.Username = meta.User.Username
 		resp.UUID = meta.User.UUID
 		return resp, nil
@@ -461,8 +465,6 @@ func getMe(ctx context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) 
 		return resp, nil
 	case rpc.PrincipalAgent:
 		resp.LoggedIn = true
-		resp.SSOId = "client"
-		resp.SSOType = "client"
 		resp.Username = "client"
 		resp.UUID = meta.ClientToken
 		client, err := clients.GetClientUUIDByToken(meta.ClientToken)

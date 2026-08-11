@@ -22,8 +22,6 @@ import (
 // admin.system.go
 // 系统/运维类 RPC2 方法（admin 命名空间）：日志、cloudflared、测试。
 
-const cloudflaredStopConfirmText = "STOP CLOUDFLARED"
-
 func init() {
 	reg("getLogs", adminGetLogs, "Get audit logs (paged)")
 	reg("getCloudflaredStatus", adminCloudflaredStatus, "Get cloudflared tunnel status")
@@ -145,28 +143,22 @@ func adminStartCloudflared(ctx context.Context, req *rpc.JsonRpcRequest) (any, *
 func adminStopCloudflared(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
 	var params struct {
 		CurrentPassword string `json:"current_password"`
-		ConfirmText     string `json:"confirm_text"`
 	}
 	req.BindParams(&params)
 
-	disablePasswordLogin, _ := config.GetAs[bool](config.DisablePasswordLoginKey, false)
-	if !disablePasswordLogin {
-		actor, _ := auditActor(ctx)
-		if actor == "" {
-			return nil, rpc.MakeError(rpc.Unauthenticated, "Unauthorized.", nil)
-		}
-		user, err := accounts.GetUserByUUID(actor)
-		if err != nil {
-			return nil, rpc.MakeError(rpc.Unauthenticated, "Failed to verify current user", nil)
-		}
-		if strings.TrimSpace(params.CurrentPassword) == "" {
-			return nil, rpc.MakeError(rpc.InvalidParams, "Current password is required", nil)
-		}
-		if _, ok := accounts.CheckPassword(user.Username, params.CurrentPassword); !ok {
-			return nil, rpc.MakeError(rpc.Unauthenticated, "Current password is incorrect", nil)
-		}
-	} else if strings.TrimSpace(params.ConfirmText) != cloudflaredStopConfirmText {
-		return nil, rpc.MakeError(rpc.InvalidParams, "Type STOP CLOUDFLARED to confirm stopping cloudflared", nil)
+	actor, _ := auditActor(ctx)
+	if actor == "" {
+		return nil, rpc.MakeError(rpc.Unauthenticated, "Unauthorized.", nil)
+	}
+	user, err := accounts.GetUserByUUID(actor)
+	if err != nil {
+		return nil, rpc.MakeError(rpc.Unauthenticated, "Failed to verify current user", nil)
+	}
+	if strings.TrimSpace(params.CurrentPassword) == "" {
+		return nil, rpc.MakeError(rpc.InvalidParams, "Current password is required", nil)
+	}
+	if _, ok := accounts.CheckPassword(user.Username, params.CurrentPassword); !ok {
+		return nil, rpc.MakeError(rpc.Unauthenticated, "Current password is incorrect", nil)
 	}
 
 	if err := cloudflared.Stop(); err != nil {

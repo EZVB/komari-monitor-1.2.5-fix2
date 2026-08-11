@@ -12,8 +12,6 @@ export interface SettingsResponse {
   geo_ip_enabled: boolean;
   geo_ip_provider: string;
   low_resource_mode: boolean;
-  o_auth_provider: string;
-  o_auth_enabled: boolean;
   custom_head: string;
   CreatedAt: string;
   UpdatedAt: string;
@@ -129,8 +127,6 @@ export function useSettings() {
     geo_ip_enabled: false,
     geo_ip_provider: "",
     low_resource_mode: false,
-    o_auth_provider: "",
-    o_auth_enabled: false,
     custom_head: "",
     CreatedAt: "",
     UpdatedAt: "",

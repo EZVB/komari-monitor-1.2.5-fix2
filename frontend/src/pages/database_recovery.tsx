@@ -41,14 +41,8 @@ class RecoveryRequestError extends Error {
   }
 }
 
-type LoginMethods = Pick<
-  RestrictedAuthStatus,
-  "oauth_enabled" | "oauth_provider" | "password_login_enabled"
->;
-
 type Me = Pick<RestrictedAuthStatus, "logged_in" | "username">;
-
-type AuthStatus = LoginMethods & Me;
+type AuthStatus = Me;
 
 type RecoveryStatus = {
   state: "waiting" | "connecting" | "completed";
@@ -116,11 +110,8 @@ export default function DatabaseRecovery() {
         window.location.replace("/");
         return;
       }
-      const [methods, me] = await Promise.all([
-        request<LoginMethods>("/auth"),
-        getMe(),
-      ]);
-      setAuth({ ...methods, ...me });
+      const me = await getMe();
+      setAuth(me);
       if (!me.logged_in) {
         setStatus(null);
         return;

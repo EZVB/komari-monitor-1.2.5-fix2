@@ -90,12 +90,6 @@ export const routes: RouteObject[] = [
             ),
           },
           {
-            path: "sign-on",
-            element: React.createElement(
-              lazy(() => import("./pages/admin/settings/sign-on"))
-            ),
-          },
-          {
             path: "notification",
             element: React.createElement(
               lazy(() => import("./pages/admin/settings/notification"))

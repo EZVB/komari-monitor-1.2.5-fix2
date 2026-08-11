@@ -815,8 +815,12 @@ func UpdateThemeSettings(c *gin.Context) {
 	}
 
 	var themeCfg models.ThemeConfiguration
-	db.Where("short = ?", theme).
+	if err := db.Where("short = ?", theme).
 		Assign(models.ThemeConfiguration{Short: theme, Data: string(data)}).
-		FirstOrCreate(&themeCfg)
+		FirstOrCreate(&themeCfg).Error; err != nil {
+		api.RespondError(c, http.StatusInternalServerError, "保存主题配置失败: "+err.Error())
+		return
+	}
+	config.NotifyChanged()
 	api.RespondSuccess(c, nil)
 }

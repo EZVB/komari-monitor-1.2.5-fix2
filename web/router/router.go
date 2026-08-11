@@ -33,8 +33,6 @@ func registerPublicRoutes(r *gin.Engine) {
 	// 非 JSON / 特殊流程，保留 REST handler。
 	r.POST("/api/login", public_api.Login)
 	r.GET("/api/logout", public_api.Logout)
-	r.GET("/api/oauth", public_api.OAuth)
-	r.GET("/api/oauth_callback", public_api.OAuthCallback)
 	r.GET("/api/mjpeg_live", public_api.MjpegLiveHandler)
 	// /api/clients 是 WebSocket 端点（客户端发 "get"/"get <uuid>" 拉取在线列表与最新上报），
 	// 非 JSON-RPC，保留为 WS handler。
@@ -109,13 +107,6 @@ func registerAdminRoutes(r *gin.Engine) {
 		twoFactor.POST("/disable", api.RequireSensitive2FA(), admin.Disable2FA)
 	}
 
-	// oauth2 绑定走重定向，保留 REST handler。
-	oauth2 := g.Group("/oauth2")
-	{
-		oauth2.GET("/bind", admin.BindingExternalAccount)
-		oauth2.POST("/unbind", admin.UnbindExternalAccount)
-	}
-
 	// --- 以下全部 JSON -> RPC2 ---
 
 	// settings
@@ -123,8 +114,6 @@ func registerAdminRoutes(r *gin.Engine) {
 	{
 		settings.GET("/", jsonRpc.Bind("admin:getSettings"))
 		settings.POST("/", jsonRpc.Bind("admin:editSettings"))
-		settings.POST("/oidc", jsonRpc.Bind("admin:setOidcProvider"))
-		settings.GET("/oidc", jsonRpc.Bind("admin:getOidcProvider", jsonRpc.WithQuery("provider")))
 		settings.POST("/message-sender", jsonRpc.Bind("admin:setMessageSenderProvider"))
 		settings.GET("/message-sender", jsonRpc.Bind("admin:getMessageSenderProvider", jsonRpc.WithQuery("provider")))
 		settings.GET("/cloudflared", jsonRpc.Bind("admin:getCloudflaredStatus"))

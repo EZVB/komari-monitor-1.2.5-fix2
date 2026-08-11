@@ -1,17 +1,16 @@
 import * as React from "react";
 import {
+  Button,
   Dialog,
   Flex,
+  IconButton,
   Text,
   TextField,
-  Button,
-  Box,
-  IconButton,
 } from "@radix-ui/themes";
 import { useTranslation } from "react-i18next";
-import { TablerSettings } from "./Icones/Tabler";
+
 import { AccountProvider, useAccount } from "@/contexts/AccountContext";
-import { usePublicInfo } from "@/contexts/PublicInfoContext";
+import { TablerSettings } from "./Icones/Tabler";
 
 type LoginDialogProps = {
   trigger?: React.ReactNode | string;
@@ -41,21 +40,16 @@ const LoginDialog = ({
     const [errorMsg, setErrorMsg] = React.useState("");
     const [isLoading, setIsLoading] = React.useState(false);
     const [require2FA, setRequire2FA] = React.useState(false);
-    const [open, setOpen] = React.useState(autoOpen || false);
-    const {publicInfo} = usePublicInfo();
-  // 是否启用密码登录
-  const passwordLoginEnabled = !publicInfo?.disable_password_login;
-  const oauthEnabled = !!publicInfo?.oauth_enable;
-  const onlyOAuthLogin = oauthEnabled && !passwordLoginEnabled; // 只有 OAuth
-  // Validate inputs (仅在启用密码登录时需要)
-  const isFormValid = passwordLoginEnabled && username.trim() !== "" && password.trim() !== "";
-    //console.log(autoOpen, open);
+    const [open, setOpen] = React.useState(autoOpen);
+    const isFormValid =
+      username.trim() !== "" &&
+      password.trim() !== "" &&
+      (!require2FA || twoFac.trim() !== "");
+
     React.useEffect(() => {
-      if (autoOpen) {
-        setOpen(true);
-      }
+      if (autoOpen) setOpen(true);
     }, [autoOpen]);
-    // Handle login
+
     const handleLogin = async () => {
       if (!isFormValid) {
         setErrorMsg("Username and password are required");
@@ -65,51 +59,39 @@ const LoginDialog = ({
       setErrorMsg("");
       setIsLoading(true);
       try {
-        const res = await fetch("/api/login", {
+        const response = await fetch("/api/login", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             username,
             password,
-            ...(twoFac && !account?.["2fa_enabled"] ? { "2fa_code": twoFac } : {}),
+            ...(twoFac ? { "2fa_code": twoFac } : {}),
           }),
         });
-        const data = await res.json();
-        if (res.status === 200) {
+        const data = await response.json();
+        if (response.ok) {
           refresh();
-          if (typeof onLoginSuccess === "function") {
+          if (onLoginSuccess) {
             onLoginSuccess();
-            return
-          }
-          window.open("/admin", "_self");
-        } else {
-          if (data.message === "2FA code is required") {
-            setRequire2FA(true);
             return;
           }
-          setErrorMsg(data.message || "Login failed");
+          window.open("/admin", "_self");
+          return;
         }
-      } catch (err) {
+        if (data.message === "2FA code is required") {
+          setRequire2FA(true);
+          return;
+        }
+        setErrorMsg(data.message || "Login failed");
+      } catch (loginError) {
         setErrorMsg("Network error");
-        console.error(err);
+        console.error(loginError);
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Handle Enter key press
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !isLoading && isFormValid) {
-        e.preventDefault(); // Prevent form submission issues
-        handleLogin();
-      }
-    };
-
-    if (loading) {
-      return <Button disabled>{t("loading")}</Button>;
-    }
+    if (loading) return <Button disabled>{t("loading")}</Button>;
     if (error || !account) {
       return (
         <Button disabled color="red">
@@ -118,41 +100,16 @@ const LoginDialog = ({
       );
     }
     if (account.logged_in) {
-      if (!showSettings) {
-        return null;
-      }
+      if (!showSettings) return null;
       return (
         <a href="/admin" target="_blank">
           <IconButton>
-            <TablerSettings></TablerSettings>
+            <TablerSettings />
           </IconButton>
         </a>
       );
     }
 
-    // 仅 OAuth 登录 且 不自动打开时：点击触发器直接跳转，不展示对话框
-    if (onlyOAuthLogin && !autoOpen) {
-      const redirect = () => {
-        window.location.href = "/api/oauth";
-      };
-      if (trigger) {
-        // 如果提供了自定义触发器，包装一层点击
-        if (typeof trigger === "string") {
-          return (
-            <Button onClick={redirect}>{trigger}</Button>
-          );
-        }
-        return (
-          <span onClick={redirect} style={{ cursor: "pointer", display: "inline-flex" }}>
-            {trigger}
-          </span>
-        );
-      }
-      // 默认按钮
-      return (
-        <Button onClick={redirect}>{t("login.title")}</Button>
-      );
-    }
     return (
       <Dialog.Root
         open={open}
@@ -162,114 +119,80 @@ const LoginDialog = ({
       >
         {!hideTrigger && (
           <Dialog.Trigger>
-            {trigger ? trigger : <Button>{t("login.title")}</Button>}
+            {trigger ?? <Button>{t("login.title")}</Button>}
           </Dialog.Trigger>
         )}
         <Dialog.Content maxWidth="450px">
           <Dialog.Title>{t("login.title")}</Dialog.Title>
           <Dialog.Description size="2" mb="4">
-            <div className="flex justify-center flex-col gap-2">
-              <label>{t("login.desc")}</label>
-              {info && (
-                <label>
-                  {info}
-                </label>
-              )}
-            </div>
-
+            <span className="flex flex-col justify-center gap-2">
+              <span>{t("login.desc")}</span>
+              {info && <span>{info}</span>}
+            </span>
           </Dialog.Description>
-          <Box
-            onSubmit={(e) => {
-              e.preventDefault(); // Prevent native form submission
-              if (isFormValid && !isLoading) {
-                handleLogin();
-              }
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (isFormValid && !isLoading) void handleLogin();
             }}
           >
             <Flex direction="column" gap="3">
-              {passwordLoginEnabled && (
-                <>
-                  <label>
-                    <Text as="div" size="2" mb="1" weight="bold">
-                      {t("login.username")}
-                    </Text>
-                    <TextField.Root
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="admin"
-                      disabled={isLoading}
-                      autoFocus
-                    />
-                  </label>
-                  <label>
-                    <Text as="div" size="2" mb="1" weight="bold">
-                      {t("login.password")}
-                    </Text>
-                    <TextField.Root
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      type="password"
-                      placeholder={t("login.password_placeholder")}
-                      disabled={isLoading}
-                    />
-                  </label>
-                  <label hidden={!require2FA}>
-                    <Text as="div" size="2" mb="1" weight="bold">
-                      {t("login.two_factor")}
-                    </Text>
-                    <TextField.Root
-                      value={twoFac}
-                      onChange={(e) => setTwoFac(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      type="text"
-                      placeholder="000000"
-                      disabled={isLoading}
-                    />
-                  </label>
-                  {errorMsg && (
-                    <Text as="div" size="2" color="red">
-                      {errorMsg}
-                    </Text>
-                  )}
-                  <Button
-                    type="submit"
-                    disabled={isLoading || !isFormValid}
-                    style={{ opacity: isLoading || !isFormValid ? 0.6 : 1 }}
-                    onClick={handleLogin}
-                  >
-                    {isLoading ? "Logging in..." : t("login.title")}
-                  </Button>
-                </>
-              )}
-              {/* OAuth 登录按钮：即使关闭密码登录也展示 */}
-              {publicInfo?.oauth_enable && (
-                <Button
-                  onClick={() => {
-                    window.location.href = "/api/oauth";
-                  }}
-                  variant={passwordLoginEnabled ? "soft" : "solid"}
+              <label>
+                <Text as="div" size="2" mb="1" weight="bold">
+                  {t("login.username")}
+                </Text>
+                <TextField.Root
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="admin"
                   disabled={isLoading}
-                  type="button"
-                >
-                  {t("login.login_with", {
-                    provider:
-                      publicInfo?.oauth_provider === "generic"
-                        ? "OAuth"
-                        : publicInfo?.oauth_provider
-                        ? publicInfo.oauth_provider.charAt(0).toUpperCase() +
-                          publicInfo.oauth_provider.slice(1)
-                        : "",
-                  })}
-                </Button>
+                  autoComplete="username"
+                  autoFocus
+                />
+              </label>
+              <label>
+                <Text as="div" size="2" mb="1" weight="bold">
+                  {t("login.password")}
+                </Text>
+                <TextField.Root
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  type="password"
+                  placeholder={t("login.password_placeholder")}
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                />
+              </label>
+              {require2FA && (
+                <label>
+                  <Text as="div" size="2" mb="1" weight="bold">
+                    {t("login.two_factor")}
+                  </Text>
+                  <TextField.Root
+                    value={twoFac}
+                    onChange={(event) => setTwoFac(event.target.value)}
+                    placeholder="000000"
+                    disabled={isLoading}
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                  />
+                </label>
               )}
+              {errorMsg && (
+                <Text as="div" size="2" color="red">
+                  {errorMsg}
+                </Text>
+              )}
+              <Button type="submit" disabled={isLoading || !isFormValid}>
+                {isLoading ? "Logging in..." : t("login.title")}
+              </Button>
             </Flex>
-          </Box>
+          </form>
         </Dialog.Content>
       </Dialog.Root>
     );
   };
+
   return (
     <AccountProvider>
       <InnerLayout />

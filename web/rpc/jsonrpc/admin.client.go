@@ -152,7 +152,7 @@ func adminGetClient(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonR
 }
 
 func adminListClients(_ context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	cls, err := clients.GetAllClientBasicInfo()
+	cls, err := clients.GetAllClientBasicInfoWithTraffic()
 	if err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, err.Error(), nil)
 	}

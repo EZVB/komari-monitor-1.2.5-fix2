@@ -65,10 +65,6 @@ type Me = {
 };
 
 type AuthStatus = RestrictedAuthStatus & Me;
-type LoginMethods = Pick<
-  RestrictedAuthStatus,
-  "oauth_enabled" | "oauth_provider" | "password_login_enabled"
->;
 
 type APIResponse<T> = {
   status: "success" | "error";
@@ -128,11 +124,7 @@ const Upgrade127 = () => {
 
   const refreshAuth = useCallback(async () => {
     try {
-      const [methods, me] = await Promise.all([
-        request<LoginMethods>("/auth"),
-        getMe(),
-      ]);
-      const next = { ...methods, ...me };
+      const next = await getMe();
       setAuth(next);
       return next;
     } catch (error) {

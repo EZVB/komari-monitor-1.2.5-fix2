@@ -26,6 +26,7 @@ import { OfflineIndicator } from "./components/OfflineIndicator";
 import { Toaster } from "./components/ui/sonner";
 import { RPC2Provider } from "./contexts/RPC2Context";
 import { NodeListProvider } from "./contexts/NodeListContext";
+import { ConfigRevisionProvider } from "./contexts/ConfigRevisionContext";
 const App = () => {
 	const isUpgradeRoute = window.location.pathname.replace(/\/$/, "") === "/admin/update/1.2.7";
 	const isRestrictedGuideRoute = isUpgradeRoute || window.location.pathname.replace(/\/$/, "") === "/install" || window.location.pathname.replace(/\/$/, "") === "/database-recovery";
@@ -90,15 +91,17 @@ const App = () => {
 			</>
 		  ) : (
 			<RPC2Provider>
-			  <PublicInfoProvider>
-				<NodeListProvider>
+			  <ConfigRevisionProvider>
+				<PublicInfoProvider>
+				  <NodeListProvider>
 				  <Toaster />
 				  <OfflineIndicator />
 				  {routing}
 				  <PWAInstallPrompt />
 				  <PWAUpdatePrompt />
-				</NodeListProvider>
-			  </PublicInfoProvider>
+				  </NodeListProvider>
+				</PublicInfoProvider>
+			  </ConfigRevisionProvider>
 			</RPC2Provider>
 		  )}
         </Theme>

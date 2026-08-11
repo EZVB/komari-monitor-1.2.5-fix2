@@ -4,9 +4,6 @@ import { LoaderCircle, LogIn } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export type RestrictedAuthStatus = {
-  oauth_enabled: boolean;
-  oauth_provider: string;
-  password_login_enabled: boolean;
   logged_in: boolean;
   username?: string;
 };
@@ -52,6 +49,8 @@ export default function RestrictedLoginDialog({
       if (!response.ok) {
         if (payload.message === "2FA code is required") {
           setRequireTwoFactor(true);
+          setError("");
+          return;
         }
         throw new Error(payload.message || `HTTP ${response.status}`);
       }
@@ -76,84 +75,74 @@ export default function RestrictedLoginDialog({
       >
         <Dialog.Title>{t("login.title")}</Dialog.Title>
         <Dialog.Description>{t("login.desc")}</Dialog.Description>
-        {auth?.password_login_enabled && (
-          <form
-            className="mt-5 space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void login();
-            }}
-          >
+        <form
+          className="mt-5 space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void login();
+          }}
+        >
+          <label className="block">
+            <Text as="div" size="2" weight="bold" mb="1">
+              {t("login.username")}
+            </Text>
+            <TextField.Root
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              autoComplete="username"
+              autoFocus
+              disabled={busy}
+            />
+          </label>
+          <label className="block">
+            <Text as="div" size="2" weight="bold" mb="1">
+              {t("login.password")}
+            </Text>
+            <TextField.Root
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              disabled={busy}
+            />
+          </label>
+          {requireTwoFactor && (
             <label className="block">
               <Text as="div" size="2" weight="bold" mb="1">
-                {t("login.username")}
+                {t("login.two_factor")}
               </Text>
               <TextField.Root
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                autoComplete="username"
-                autoFocus
+                value={twoFactor}
+                onChange={(event) => setTwoFactor(event.target.value)}
+                autoComplete="one-time-code"
+                inputMode="numeric"
                 disabled={busy}
               />
             </label>
-            <label className="block">
-              <Text as="div" size="2" weight="bold" mb="1">
-                {t("login.password")}
-              </Text>
-              <TextField.Root
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
-                disabled={busy}
-              />
-            </label>
-            {requireTwoFactor && (
-              <label className="block">
-                <Text as="div" size="2" weight="bold" mb="1">
-                  {t("login.two_factor")}
-                </Text>
-                <TextField.Root
-                  value={twoFactor}
-                  onChange={(event) => setTwoFactor(event.target.value)}
-                  autoComplete="one-time-code"
-                  inputMode="numeric"
-                  disabled={busy}
-                />
-              </label>
-            )}
-            {error && (
-              <Text as="div" size="2" color="red">
-                {error}
-              </Text>
-            )}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={busy || !username.trim() || !password}
-            >
-              {busy ? (
-                <LoaderCircle size={16} className="animate-spin" />
-              ) : (
-                <LogIn size={16} />
-              )}
-              {busy ? t("loading") : t("login.title")}
-            </Button>
-          </form>
-        )}
-        {auth?.oauth_enabled && (
+          )}
+          {error && (
+            <Text as="div" size="2" color="red">
+              {error}
+            </Text>
+          )}
           <Button
-            variant={auth.password_login_enabled ? "soft" : "solid"}
-            className="mt-3 w-full"
-            onClick={() => {
-              window.location.href = "/api/oauth";
-            }}
+            type="submit"
+            className="w-full"
+            disabled={
+              busy ||
+              !username.trim() ||
+              !password ||
+              (requireTwoFactor && !twoFactor.trim())
+            }
           >
-            {t("login.login_with", {
-              provider: auth.oauth_provider || "OAuth",
-            })}
+            {busy ? (
+              <LoaderCircle size={16} className="animate-spin" />
+            ) : (
+              <LogIn size={16} />
+            )}
+            {busy ? t("loading") : t("login.title")}
           </Button>
-        )}
+        </form>
       </Dialog.Content>
     </Dialog.Root>
   );

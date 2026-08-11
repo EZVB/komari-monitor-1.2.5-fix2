@@ -24,23 +24,9 @@ import { usePublicInfo } from "@/contexts/PublicInfoContext";
 import Tips from "../ui/tips";
 import { CircleFadingArrowUp } from "lucide-react";
 import { useRPC2Call } from "@/contexts/RPC2Context";
-import { resolveI18nText } from "@/utils/i18nText";
-import {
-  getThemeConfigurationType,
-  normalizeThemeRedirectTarget,
-  THEME_CONFIGURATION_MANAGED,
-  THEME_CONFIGURATION_RAW,
-  THEME_CONFIGURATION_REDIRECT,
-} from "@/utils/themeConfiguration";
 
 // 将JSON配置转换为类型安全的菜单项数组 (基础静态菜单)
 const baseMenuItems = (menuConfig as { menu: MenuItem[] }).menu;
-
-// 扩展的菜单项类型（允许直接提供 rawLabel 而不是多语言 key）
-interface ExtendedMenuItem extends MenuItem {
-  rawLabel?: string; // 不走 i18n，直接显示
-  reloadDocument?: boolean;
-}
 
 interface AdminPanelBarProps {
   content: ReactNode;
@@ -54,7 +40,7 @@ const AdminPanelBar = ({ content }: AdminPanelBarProps) => {
   });
   const isMobile = useIsMobile();
   const ishttps = window.location.protocol === "https:";
-  const [t, i18n] = useTranslation();
+  const [t] = useTranslation();
   const location = useLocation();
   const { publicInfo } = usePublicInfo();
   //const navigate = useNavigate();
@@ -63,10 +49,6 @@ const AdminPanelBar = ({ content }: AdminPanelBarProps) => {
     hash: string;
     version: string;
   } | null>(null);
-  const currentLanguage =
-    i18n.resolvedLanguage ||
-    i18n.language ||
-    (typeof navigator !== "undefined" ? navigator.language : "");
   // GitHub 最新发布信息与更新检测
   interface GithubReleaseInfo {
     tag_name: string;
@@ -83,74 +65,6 @@ const AdminPanelBar = ({ content }: AdminPanelBarProps) => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [releasesSince, setReleasesSince] = useState<GithubReleaseInfo[]>([]);
 
-  const currentTheme = publicInfo?.theme;
-
-  // 动态扩展菜单
-  const [extraMenuItems, setExtraMenuItems] = useState<ExtendedMenuItem[]>([]);
-
-  useEffect(() => {
-    let ignore = false;
-    async function loadThemeMenu() {
-      // 仅当 theme 存在且不等于 default 时扩展
-      if (!currentTheme) {
-        setExtraMenuItems([]);
-        return;
-      }
-      try {
-        const resp = await fetch(`/themes/${currentTheme}/komari-theme.json`, {
-          cache: "no-cache",
-        });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
-        if (ignore) return;
-        const cfg = data?.configuration;
-        if (!cfg) {
-          setExtraMenuItems([]);
-          return;
-        }
-
-        const cfgType = getThemeConfigurationType(cfg);
-        let itemPath: string | null = null;
-        if (
-          cfgType === THEME_CONFIGURATION_MANAGED &&
-          Array.isArray(cfg.data) &&
-          cfg.data.length > 0
-        ) {
-          itemPath = "/admin/theme_managed";
-        } else if (cfgType === THEME_CONFIGURATION_RAW) {
-          itemPath = "/admin/theme_raw";
-        } else if (cfgType === THEME_CONFIGURATION_REDIRECT) {
-          itemPath = normalizeThemeRedirectTarget(cfg.data);
-        }
-
-        if (!itemPath) {
-          setExtraMenuItems([]);
-          return;
-        }
-        const rawLabel: string =
-          resolveI18nText(cfg.name, currentLanguage) ??
-          t("theme.manage_with_name", {
-            name: currentTheme === "default" ? "" : currentTheme,
-          });
-        const icon: string = cfg.icon || "Palette"; // fallback icon
-        const item: ExtendedMenuItem = {
-          labelKey: rawLabel,
-          rawLabel,
-          path: itemPath,
-          icon,
-          reloadDocument: cfgType === THEME_CONFIGURATION_REDIRECT,
-        };
-        setExtraMenuItems([item]);
-      } catch (e) {
-        console.warn("加载主题配置失败，将不扩展主题菜单:", e);
-        if (!ignore) setExtraMenuItems([]);
-      }
-    }
-    loadThemeMenu();
-    return () => {
-      ignore = true;
-    };
-  }, [currentTheme]);
   useEffect(() => {
     const fetchVersionInfo = async () => {
       try {
@@ -239,11 +153,10 @@ const AdminPanelBar = ({ content }: AdminPanelBarProps) => {
     return () => window.removeEventListener("resize", handleResize);
   }, [isMobile]);
 
-  // 根据路径自动展开子菜单（包含动态扩展项）
+  // 根据路径自动展开子菜单
   useEffect(() => {
     const newState: { [key: string]: boolean } = {};
-    const combined: ExtendedMenuItem[] = [...baseMenuItems, ...extraMenuItems];
-    combined.forEach((item) => {
+    baseMenuItems.forEach((item) => {
       if (item.children) {
         newState[item.path] = item.children.some(
           (child: MenuItem) =>
@@ -253,7 +166,7 @@ const AdminPanelBar = ({ content }: AdminPanelBarProps) => {
       }
     });
     setOpenSubMenus(newState);
-  }, [location.pathname, extraMenuItems]);
+  }, [location.pathname]);
 
   // 侧边栏动画变体
   const sidebarVariants = {
@@ -460,8 +373,8 @@ const AdminPanelBar = ({ content }: AdminPanelBarProps) => {
                 className="h-full md:mt-0 mt-6"
                 style={{ width: "100%" }}
               >
-                {[...baseMenuItems, ...extraMenuItems].map(
-                  (item: ExtendedMenuItem) => {
+                {baseMenuItems.map(
+                  (item: MenuItem) => {
                     // 支持 icon 为 URL/相对路径
                     const isOpen = openSubMenus[item.path];
                     const renderIcon = (
@@ -563,7 +476,7 @@ const AdminPanelBar = ({ content }: AdminPanelBarProps) => {
                                 flex: 1,
                               }}
                             >
-                              {item.rawLabel || t(item.labelKey)}
+                              {t(item.labelKey)}
                             </Text>
 
                             <ChevronDownIcon
@@ -596,16 +509,12 @@ const AdminPanelBar = ({ content }: AdminPanelBarProps) => {
                                     "flex w-4 h-5 items-center justify-center",
                                   )}
                                   children={
-                                    (child as ExtendedMenuItem).rawLabel ||
                                     t(child.labelKey)
                                   }
                                   onClick={() =>
                                     isMobile && setSidebarOpen(false)
                                   }
                                   newTab={child.newTab}
-                                  reloadDocument={
-                                    (child as ExtendedMenuItem).reloadDocument
-                                  }
                                 />
                               ))}
                             </Flex>
@@ -622,10 +531,9 @@ const AdminPanelBar = ({ content }: AdminPanelBarProps) => {
                           item.labelKey,
                           "flex w-4 h-5 items-center justify-center",
                         )}
-                        children={item.rawLabel || t(item.labelKey)}
+                        children={t(item.labelKey)}
                         onClick={() => isMobile && setSidebarOpen(false)}
                         newTab={item.newTab}
-                        reloadDocument={item.reloadDocument}
                       />
                     );
                   },

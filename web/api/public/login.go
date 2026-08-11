@@ -7,7 +7,6 @@ import (
 
 	"github.com/komari-monitor/komari/database/accounts"
 	"github.com/komari-monitor/komari/database/auditlog"
-	"github.com/komari-monitor/komari/pkg/config"
 	"github.com/komari-monitor/komari/utils"
 	"github.com/komari-monitor/komari/web/api"
 
@@ -35,12 +34,6 @@ func setSessionCookie(c *gin.Context, value string, maxAge int) {
 }
 
 func Login(c *gin.Context) {
-	DisablePasswordLogin, _ := config.GetAs[bool](config.DisablePasswordLoginKey, false)
-	if DisablePasswordLogin {
-		api.RespondError(c, http.StatusForbidden, "Password login is disabled")
-		return
-	}
-
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		api.RespondError(c, http.StatusBadRequest, "Invalid request body: "+err.Error())

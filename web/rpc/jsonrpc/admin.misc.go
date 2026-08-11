@@ -6,6 +6,7 @@ import (
 
 	"github.com/komari-monitor/komari/database/accounts"
 	"github.com/komari-monitor/komari/database/auditlog"
+	"github.com/komari-monitor/komari/database/clients"
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
 	"github.com/komari-monitor/komari/database/records"
@@ -144,6 +145,7 @@ func adminOrderClients(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.
 			return nil, rpc.MakeError(rpc.InternalError, "Failed to update client weight: "+err.Error(), nil)
 		}
 	}
+	clients.NotifyChanged()
 	actor, ip := auditActor(ctx)
 	auditlog.Log(ip, actor, "order clients", "info")
 	return nil, nil
