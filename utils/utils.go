@@ -152,17 +152,19 @@ func ComputeTrafficDelta(current, previous int64) int64 {
 	return ComputeTrafficDeltaWithReset(current, previous, false)
 }
 
-// ComputeTrafficDeltaWithReset only counts a counter rollback when the caller
-// has independent evidence that the counter owner restarted.
+// ComputeTrafficDeltaWithReset treats a restart as a new counter generation.
+// The first sample establishes the new baseline and is deliberately not
+// counted, because it can contain traffic from before the monitor reconnected
+// or from a changed interface set.
 func ComputeTrafficDeltaWithReset(current, previous int64, reset bool) int64 {
 	if current < 0 || previous < 0 {
 		return 0
 	}
+	if reset {
+		return 0
+	}
 	if current >= previous {
 		return current - previous
-	}
-	if reset {
-		return current
 	}
 	return 0
 }

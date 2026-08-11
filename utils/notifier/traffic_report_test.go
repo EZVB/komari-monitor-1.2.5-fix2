@@ -84,7 +84,7 @@ func TestGetClientTrafficInRangeNormalizesLongTermSlotForOverlap(t *testing.T) {
 	assert.Equal(t, int64(380), used)
 }
 
-func TestGetClientTrafficInRangeCountsCounterResetWithRestartEvidence(t *testing.T) {
+func TestGetClientTrafficInRangeRebasesCounterResetWithRestartEvidence(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
 	assert.NoError(t, db.AutoMigrate(&models.Record{}))
@@ -104,7 +104,7 @@ func TestGetClientTrafficInRangeCountsCounterResetWithRestartEvidence(t *testing
 
 	used, err := getClientTrafficInRangeWithDB(db, clientUUID, "sum", start, start.Add(20*time.Minute))
 	assert.NoError(t, err)
-	assert.Equal(t, int64(175), used)
+	assert.Equal(t, int64(135), used)
 }
 
 func TestGetClientTrafficInRangeFallsBackForPersistedZeroDeltas(t *testing.T) {
@@ -128,7 +128,7 @@ func TestGetClientTrafficInRangeFallsBackForPersistedZeroDeltas(t *testing.T) {
 
 	used, err := getClientTrafficInRangeWithDB(db, clientUUID, "sum", start, start.Add(20*time.Minute))
 	assert.NoError(t, err)
-	assert.Equal(t, int64(235), used)
+	assert.Equal(t, int64(195), used)
 }
 
 func TestGetClientTrafficInRangeFallsBackForLongTermZeroDeltas(t *testing.T) {
@@ -196,5 +196,5 @@ func TestGetClientTrafficInRangePrefersRawSlotOverZeroLongTermSlot(t *testing.T)
 
 	used, err := getClientTrafficInRangeWithDB(db, clientUUID, "sum", start, slot.Add(15*time.Minute))
 	assert.NoError(t, err)
-	assert.Equal(t, int64(110), used)
+	assert.Equal(t, int64(80), used)
 }
