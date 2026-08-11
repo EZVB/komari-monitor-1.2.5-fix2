@@ -14,8 +14,6 @@ export function EditDialog({ item }: { item: z.infer<typeof schema> }) {
   const [form, setForm] = React.useState<ClientFormData & { weight: number }>({
     name: item.name || "",
     token: item.token || "", // 从 item 初始化 token
-    remark: item.remark || "", // 从 item 初始化 remark
-    public_remark: item.public_remark || "", // 从 item 初始化 public_remark
     weight: item.weight || 0,
   });
   const [loading, setLoading] = React.useState(false);
@@ -84,38 +82,6 @@ export function EditDialog({ item }: { item: z.infer<typeof schema> }) {
               className="bg-gray-200"
             />
           </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium text-muted-foreground">
-              {t("admin.nodeEdit.remark", "私有备注")}
-            </label>
-            <TextField.Root
-              value={form.remark}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, remark: e.target.value }))
-              }
-              placeholder={t(
-                "admin.nodeEdit.remarkPlaceholder",
-                "请输入私有备注"
-              )}
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium text-muted-foreground">
-              {t("admin.nodeEdit.publicRemark", "公开备注")}
-            </label>
-            <TextField.Root
-              value={form.public_remark}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, public_remark: e.target.value }))
-              }
-              placeholder={t(
-                "admin.nodeEdit.publicRemarkPlaceholder",
-                "请输入公开备注"
-              )}
-              disabled={loading}
-            />
-          </div>
         </div>
         <Flex gap="2" align={"start"} className="mt-4">
           <Button
@@ -125,8 +91,6 @@ export function EditDialog({ item }: { item: z.infer<typeof schema> }) {
               const payload: ClientFormData = {
                 name: form.name,
                 token: form.token,
-                remark: form.remark,
-                public_remark: form.public_remark,
               };
               saveClientData(item.uuid, payload, setLoading, () =>
                 setOpen(false)

@@ -57,7 +57,6 @@ func publicGetNodesInformation(ctx context.Context, _ *rpc.JsonRpcRequest) (any,
 		}
 		clientList[i].IPv4 = ""
 		clientList[i].IPv6 = ""
-		clientList[i].Remark = ""
 		clientList[i].Version = ""
 		clientList[i].Token = ""
 		clientList[j] = clientList[i]

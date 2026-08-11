@@ -296,6 +296,11 @@ func SaveClient(updates map[string]interface{}) error {
 		return fmt.Errorf("no fields to update")
 	}
 
+	// Notes were removed from node management. Ignore legacy clients that still
+	// submit these fields so existing database columns cannot reactivate them.
+	delete(updates, "remark")
+	delete(updates, "public_remark")
+
 	if v, exists := updates["traffic_limit"]; exists {
 		if val, ok := v.(float64); ok {
 			if val < 0 || val > math.MaxInt64-1 {

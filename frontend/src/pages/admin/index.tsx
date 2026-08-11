@@ -77,7 +77,7 @@ import PriceTags from "@/components/PriceTags";
 import Loading from "@/components/loading";
 import Tips from "@/components/ui/tips";
 import {
-  SettingCardCollapse,
+  SettingCard,
   SettingCardSelect,
   SettingCardShortTextInput,
   SettingCardSwitch,
@@ -1126,22 +1126,6 @@ const SortableRow = ({
         </Text>
       </TableCell>
       <TableCell>
-        <Text
-          size="2"
-          title={node.remark}
-          style={{
-            maxWidth: "150px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {node.remark && node.remark.length > 10
-            ? `${node.remark.slice(0, 10)}...`
-            : node.remark}
-        </Text>
-      </TableCell>
-      <TableCell>
         <PriceTags
           price={node.price}
           billing_cycle={node.billing_cycle}
@@ -1274,7 +1258,6 @@ const NodeTable = ({
               <TableHead>{t("admin.nodeTable.ipAddress")}</TableHead>
               <TableHead>{t("admin.nodeTable.clientVersion")}</TableHead>
               <TableHead>{t("common.group")}</TableHead>
-              <TableHead>{t("admin.nodeEdit.remark")}</TableHead>
               <TableHead>{t("admin.nodeTable.billing")}</TableHead>
               <TableHead></TableHead>
             </TableRow>
@@ -2108,8 +2091,6 @@ function EditButton({ node }: { node: NodeDetail }) {
   const nameRef = React.useRef<HTMLInputElement>(null);
   const groupRef = React.useRef<HTMLInputElement>(null);
   const tagsRef = React.useRef<HTMLInputElement>(null);
-  const publicRemarkRef = React.useRef<HTMLTextAreaElement>(null);
-  const privateRemarkRef = React.useRef<HTMLTextAreaElement>(null);
   const [hidden, setHidden] = useState(false);
   const [saving, setSaving] = useState(false);
   const [traffic_limit_type, setTrafficLimitType] = useState("sum");
@@ -2175,8 +2156,6 @@ function EditButton({ node }: { node: NodeDetail }) {
       }
       const update: Record<string, unknown> = {
         name: nameRef.current?.value,
-        remark: privateRemarkRef.current?.value,
-        public_remark: publicRemarkRef.current?.value,
         group: groupRef.current?.value,
         tags: tagsRef.current?.value,
         hidden,
@@ -2276,34 +2255,6 @@ function EditButton({ node }: { node: NodeDetail }) {
             <TextField.Root defaultValue={node.group} ref={groupRef} />
           </div>
           <div>
-            <label className="block mb-1 text-sm font-medium text-muted-foreground">
-              {t("admin.nodeEdit.remark", "私有备注")}
-            </label>
-            <TextArea
-              defaultValue={node.remark}
-              ref={privateRemarkRef}
-              resize={"vertical"}
-              placeholder={t(
-                "admin.nodeEdit.remarkPlaceholder",
-                "请输入私有备注"
-              )}
-            />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium text-muted-foreground">
-              {t("admin.nodeEdit.publicRemark", "公开备注")}
-            </label>
-            <TextArea
-              defaultValue={node.public_remark}
-              resize={"vertical"}
-              placeholder={t(
-                "admin.nodeEdit.publicRemarkPlaceholder",
-                "请输入公开备注"
-              )}
-              ref={publicRemarkRef}
-            />
-          </div>
-          <div>
             <SettingCardSwitch
               title={t("admin.nodeEdit.hidden")}
               description={t("admin.nodeEdit.hidden_description")}
@@ -2311,111 +2262,114 @@ function EditButton({ node }: { node: NodeDetail }) {
               onChange={setHidden}
             />
           </div>
-          <SettingCardCollapse title={t("admin.nodeEdit.trafficSettings")}>
-            <SettingCardSelect
-              bordless
-              title={t("admin.nodeEdit.trafficLimitType")}
-              value={traffic_limit_type}
-              options={[
-                {
-                  label: t("admin.nodeEdit.trafficLimitType_sum"),
-                  value: "sum",
-                },
-                {
-                  label: t("admin.nodeEdit.trafficLimitType_max"),
-                  value: "max",
-                },
-                {
-                  label: t("admin.nodeEdit.trafficLimitType_min"),
-                  value: "min",
-                },
-                {
-                  label: t("admin.nodeEdit.trafficLimitType_up"),
-                  value: "up",
-                },
-                {
-                  label: t("admin.nodeEdit.trafficLimitType_down"),
-                  value: "down",
-                },
-              ]}
-              OnSave={(value) => {
-                setTrafficLimitType(value);
-              }}
-            />
-            <SettingCardShortTextInput
-              bordless
-              title={t("admin.nodeEdit.trafficMultiplier")}
-              description={t(
-                "admin.nodeEdit.trafficMultiplier_description"
-              )}
-              type="number"
-              min="0"
-              step="0.1"
-              value={trafficMultiplierInput}
-              showSaveButton={false}
-              onChange={(e) => {
-                setTrafficMultiplierInput(e.currentTarget.value);
-              }}
-              onBlur={() => {
-                const value = trafficMultiplierInput.trim();
-                setTrafficMultiplierInput(
-                  value ? String(normalizeTrafficMultiplier(value)) : ""
-                );
-              }}
-            />
-            <SettingCardShortTextInput
-              bordless
-              title={t("admin.nodeEdit.trafficLimit")}
-              description={t("admin.nodeEdit.trafficLimit_description")}
-              value={trafficLimitInput}
-              placeholder="∞"
-              showSaveButton={false}
-              onChange={(e) => {
-                setTrafficLimitInput(e.currentTarget.value);
-              }}
-              onBlur={() => {
-                const value = trafficLimitInput.trim();
-                setTrafficLimitInput(
-                  value ? formatBytes(stringToBytes(value)) : ""
-                );
-              }}
-            ></SettingCardShortTextInput>
-            <SettingCardShortTextInput
-              bordless
-              title={t("admin.nodeEdit.trafficResetDay")}
-              description={t(
-                "admin.nodeEdit.trafficResetDay_description"
-              )}
-              type="number"
-              min="1"
-              max="31"
-              step="1"
-              value={trafficResetDayInput}
-              placeholder={String(fallbackTrafficResetDay)}
-              showSaveButton={false}
-              onChange={(e) => {
-                setTrafficResetDayInput(e.currentTarget.value);
-              }}
-            />
-            <SettingCardShortTextInput
-              bordless
-              title={t("admin.nodeEdit.trafficInitial")}
-              description={t(
-                "admin.nodeEdit.trafficInitial_description"
-              )}
-              type="number"
-              min="0"
-              step="0.01"
-              value={trafficInitialInput}
-              placeholder={`${t(
-                "admin.nodeEdit.trafficInitial_current"
-              )} ${formatBytes(node.traffic_used ?? 0)}`}
-              showSaveButton={false}
-              onChange={(e) => {
-                setTrafficInitialInput(e.currentTarget.value);
-              }}
-            />
-          </SettingCardCollapse>
+          <SettingCard title={t("admin.nodeEdit.trafficSettings")}>
+            <div className="w-full">
+              <div className="border-t-1 my-2" />
+              <SettingCardSelect
+                bordless
+                title={t("admin.nodeEdit.trafficLimitType")}
+                value={traffic_limit_type}
+                options={[
+                  {
+                    label: t("admin.nodeEdit.trafficLimitType_sum"),
+                    value: "sum",
+                  },
+                  {
+                    label: t("admin.nodeEdit.trafficLimitType_max"),
+                    value: "max",
+                  },
+                  {
+                    label: t("admin.nodeEdit.trafficLimitType_min"),
+                    value: "min",
+                  },
+                  {
+                    label: t("admin.nodeEdit.trafficLimitType_up"),
+                    value: "up",
+                  },
+                  {
+                    label: t("admin.nodeEdit.trafficLimitType_down"),
+                    value: "down",
+                  },
+                ]}
+                OnSave={(value) => {
+                  setTrafficLimitType(value);
+                }}
+              />
+              <SettingCardShortTextInput
+                bordless
+                title={t("admin.nodeEdit.trafficMultiplier")}
+                description={t(
+                  "admin.nodeEdit.trafficMultiplier_description"
+                )}
+                type="number"
+                min="0"
+                step="0.1"
+                value={trafficMultiplierInput}
+                showSaveButton={false}
+                onChange={(e) => {
+                  setTrafficMultiplierInput(e.currentTarget.value);
+                }}
+                onBlur={() => {
+                  const value = trafficMultiplierInput.trim();
+                  setTrafficMultiplierInput(
+                    value ? String(normalizeTrafficMultiplier(value)) : ""
+                  );
+                }}
+              />
+              <SettingCardShortTextInput
+                bordless
+                title={t("admin.nodeEdit.trafficLimit")}
+                description={t("admin.nodeEdit.trafficLimit_description")}
+                value={trafficLimitInput}
+                placeholder="∞"
+                showSaveButton={false}
+                onChange={(e) => {
+                  setTrafficLimitInput(e.currentTarget.value);
+                }}
+                onBlur={() => {
+                  const value = trafficLimitInput.trim();
+                  setTrafficLimitInput(
+                    value ? formatBytes(stringToBytes(value)) : ""
+                  );
+                }}
+              ></SettingCardShortTextInput>
+              <SettingCardShortTextInput
+                bordless
+                title={t("admin.nodeEdit.trafficResetDay")}
+                description={t(
+                  "admin.nodeEdit.trafficResetDay_description"
+                )}
+                type="number"
+                min="1"
+                max="31"
+                step="1"
+                value={trafficResetDayInput}
+                placeholder={String(fallbackTrafficResetDay)}
+                showSaveButton={false}
+                onChange={(e) => {
+                  setTrafficResetDayInput(e.currentTarget.value);
+                }}
+              />
+              <SettingCardShortTextInput
+                bordless
+                title={t("admin.nodeEdit.trafficInitial")}
+                description={t(
+                  "admin.nodeEdit.trafficInitial_description"
+                )}
+                type="number"
+                min="0"
+                step="0.01"
+                value={trafficInitialInput}
+                placeholder={`${t(
+                  "admin.nodeEdit.trafficInitial_current"
+                )} ${formatBytes(node.traffic_used ?? 0)}`}
+                showSaveButton={false}
+                onChange={(e) => {
+                  setTrafficInitialInput(e.currentTarget.value);
+                }}
+              />
+            </div>
+          </SettingCard>
         </div>
         <Flex gap="2" justify={"end"} className="mt-4">
           <Button

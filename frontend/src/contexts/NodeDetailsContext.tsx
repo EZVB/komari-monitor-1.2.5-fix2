@@ -21,8 +21,6 @@ export type NodeDetail = {
   price: number;
   currency: string;
   auto_renewal: boolean;
-  remark: string | undefined;
-  public_remark: string;
   group: string | undefined;
   billing_cycle: number;
   traffic_limit: number;

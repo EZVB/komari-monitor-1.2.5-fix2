@@ -254,7 +254,6 @@ func getNodes(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcEr
 				node.IPv6 = ""
 			}
 
-			node.Remark = ""
 			node.Version = ""
 			node.Token = ""
 			filtered = append(filtered, node)
