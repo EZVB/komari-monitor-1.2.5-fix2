@@ -200,10 +200,6 @@ const Row = ({
   });
 
   const submitEdit = (newForm: typeof form) => {
-    if (!newForm.default_on && newForm.clients.length === 0) {
-      toast.error(t("ping.default_on_description"));
-      return;
-    }
     setEditSaving(true);
     fetch("/api/admin/ping/edit", {
       method: "POST",
@@ -245,6 +241,20 @@ const Row = ({
   const handleEdit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     submitEdit(form);
+  };
+
+  const handleEditOpenChange = (open: boolean) => {
+    if (open) {
+      setForm({
+        name: task.name || "",
+        type: task.type || "icmp",
+        target: task.target || "",
+        clients: task.clients || [],
+        default_on: task.default_on || false,
+        interval: task.interval || 60,
+      });
+    }
+    setEditOpen(open);
   };
 
   // 删除
@@ -337,7 +347,7 @@ const Row = ({
       <TableCell>{task.interval}</TableCell>
       <TableCell className="flex items-center gap-2">
         {/* 编辑按钮 */}
-        <Dialog.Root open={editOpen} onOpenChange={setEditOpen}>
+        <Dialog.Root open={editOpen} onOpenChange={handleEditOpenChange}>
           <Dialog.Trigger>
             <IconButton variant="soft">
               <Pencil size="16" />

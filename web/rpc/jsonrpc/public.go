@@ -285,6 +285,8 @@ func publicGetPingRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 		UUID   string `json:"uuid"`
 		TaskID string `json:"task_id"`
 		Hours  string `json:"hours"`
+		Start  string `json:"start"`
+		End    string `json:"end"`
 	}
 	req.BindParams(&params)
 	if params.UUID == "" && params.TaskID == "" {
@@ -326,18 +328,43 @@ func publicGetPingRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 		}
 	}
 
-	hours := params.Hours
-	if hours == "" {
-		hours = "4"
+	var startTime, endTime time.Time
+	if params.Start != "" || params.End != "" {
+		var err error
+		if params.End == "" {
+			endTime = time.Now()
+		} else {
+			endTime, err = time.Parse(time.RFC3339, params.End)
+			if err != nil {
+				return nil, rpc.MakeError(rpc.InvalidParams, "Invalid end time", nil)
+			}
+		}
+		if params.Start == "" {
+			startTime = endTime.Add(-time.Hour)
+		} else {
+			startTime, err = time.Parse(time.RFC3339, params.Start)
+			if err != nil {
+				return nil, rpc.MakeError(rpc.InvalidParams, "Invalid start time", nil)
+			}
+		}
+		if !startTime.Before(endTime) {
+			return nil, rpc.MakeError(rpc.InvalidParams, "Start time must be before end time", nil)
+		}
+	} else {
+		hours := params.Hours
+		if hours == "" {
+			hours = "4"
+		}
+		hoursInt, err := strconv.Atoi(hours)
+		if err != nil {
+			hoursInt = 4
+		}
+		endTime = time.Now()
+		startTime = endTime.Add(-time.Duration(hoursInt) * time.Hour)
 	}
-	hoursInt, err := strconv.Atoi(hours)
-	if err != nil {
-		hoursInt = 4
-	}
-	endTime := time.Now()
-	startTime := endTime.Add(-time.Duration(hoursInt) * time.Hour)
 
 	taskId := -1
+	var err error
 	if params.TaskID != "" {
 		taskId, err = strconv.Atoi(params.TaskID)
 		if err != nil {
