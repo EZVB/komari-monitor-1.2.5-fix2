@@ -86,14 +86,17 @@ const sameNodeBasicInfo = (left: NodeBasicInfo, right: NodeBasicInfo) =>
     (key) => left[key] === right[key],
   );
 
+const NODE_METADATA_SYNC_INTERVAL_MS = 15_000;
+
 export const NodeListProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [nodeList, setNodeList] = React.useState<NodeBasicInfo[] | null>(null);
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
-  const { call } = useRPC2Call();
+  const { callViaHTTP } = useRPC2Call();
   const revisions = useConfigRevisions();
+  const nodeRevision = revisions?.nodes ?? null;
   const refreshSeqRef = React.useRef(0);
   const mountedRef = React.useRef(true);
   const observedRevisionRef = React.useRef<number | null>(null);
@@ -110,7 +113,7 @@ export const NodeListProvider: React.FC<{ children: React.ReactNode }> = ({
     // setIsLoading(true);
     setError(null);
     // 通过 RPC2 获取节点基本信息
-    call<{ uuid?: string }, Record<string, any>>("common:getNodes")
+    callViaHTTP<{ uuid?: string }, Record<string, any>>("common:getNodes")
       .then((result) => {
         if (!mountedRef.current || refreshSeq !== refreshSeqRef.current) return;
         if (!result || typeof result !== "object") {
@@ -181,23 +184,37 @@ export const NodeListProvider: React.FC<{ children: React.ReactNode }> = ({
         if (!mountedRef.current || refreshSeq !== refreshSeqRef.current) return;
         setIsLoading(false);
       });
-  }, [call]);
+  }, [callViaHTTP]);
 
   React.useEffect(() => {
     refresh();
   }, [refresh]);
 
   React.useEffect(() => {
-    if (revisions === null) return;
-    if (observedRevisionRef.current === null) {
-      observedRevisionRef.current = revisions.nodes;
-      return;
-    }
-    if (observedRevisionRef.current !== revisions.nodes) {
-      observedRevisionRef.current = revisions.nodes;
-      refresh();
-    }
-  }, [refresh, revisions]);
+    if (nodeRevision === null) return;
+    if (observedRevisionRef.current === nodeRevision) return;
+
+    observedRevisionRef.current = nodeRevision;
+    refresh();
+  }, [nodeRevision, refresh]);
+
+  React.useEffect(() => {
+    const syncIfVisible = () => {
+      if (!document.hidden) refresh();
+    };
+    const interval = window.setInterval(
+      syncIfVisible,
+      NODE_METADATA_SYNC_INTERVAL_MS,
+    );
+
+    window.addEventListener("focus", syncIfVisible);
+    document.addEventListener("visibilitychange", syncIfVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", syncIfVisible);
+      document.removeEventListener("visibilitychange", syncIfVisible);
+    };
+  }, [refresh]);
 
   const contextValue = React.useMemo(
     () => ({ nodeList, isLoading, error, refresh }),

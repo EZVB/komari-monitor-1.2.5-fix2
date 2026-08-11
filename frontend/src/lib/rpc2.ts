@@ -226,6 +226,7 @@ export class RPC2Client {
         method: "POST",
         headers: this.options.headers,
         body: JSON.stringify(request),
+        cache: "no-store",
         signal: options.timeout ? AbortSignal.timeout(options.timeout) : undefined,
       });
 
@@ -272,6 +273,7 @@ export class RPC2Client {
         method: "POST",
         headers: this.options.headers,
         body: JSON.stringify(batchRequest),
+        cache: "no-store",
       });
 
       if (!response.ok) {

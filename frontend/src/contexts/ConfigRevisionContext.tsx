@@ -11,7 +11,7 @@ const ConfigRevisionContext = React.createContext<ConfigRevisions | null>(null);
 export const ConfigRevisionProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
-  const { call } = useRPC2Call();
+  const { callViaHTTP } = useRPC2Call();
   const [revisions, setRevisions] = React.useState<ConfigRevisions | null>(null);
   const requestPendingRef = React.useRef(false);
 
@@ -19,7 +19,7 @@ export const ConfigRevisionProvider: React.FC<{
     if (requestPendingRef.current || document.hidden) return;
     requestPendingRef.current = true;
     try {
-      const next = await call<Record<string, never>, ConfigRevisions>(
+      const next = await callViaHTTP<Record<string, never>, ConfigRevisions>(
         "common:getConfigRevisions",
       );
       if (
@@ -38,7 +38,7 @@ export const ConfigRevisionProvider: React.FC<{
     } finally {
       requestPendingRef.current = false;
     }
-  }, [call]);
+  }, [callViaHTTP]);
 
   React.useEffect(() => {
     void poll();
