@@ -48,8 +48,8 @@ func TestComputeTrafficDelta(t *testing.T) {
 }
 
 func TestComputeTrafficDeltaWithReset(t *testing.T) {
-	assert.Equal(t, int64(0), ComputeTrafficDeltaWithReset(15, 250, true))
-	assert.Equal(t, int64(0), ComputeTrafficDeltaWithReset(300, 250, true))
+	assert.Equal(t, int64(15), ComputeTrafficDeltaWithReset(15, 250, true))
+	assert.Equal(t, int64(300), ComputeTrafficDeltaWithReset(300, 250, true))
 	assert.Equal(t, int64(0), ComputeTrafficDeltaWithReset(15, 250, false))
 	assert.Equal(t, int64(50), ComputeTrafficDeltaWithReset(300, 250, false))
 }

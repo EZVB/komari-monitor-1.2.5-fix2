@@ -139,7 +139,7 @@ func TestSaveClientReportToDBRebasesCounterRollbackWithoutRestart(t *testing.T) 
 	assert.Equal(t, int64(10), saved.TrafficDown)
 }
 
-func TestSaveClientReportToDBRebasesCounterRollbackAfterRestart(t *testing.T) {
+func TestSaveClientReportToDBCountsCounterRollbackAfterRestart(t *testing.T) {
 	resetReportCache(t)
 	db := openReportCacheTestDB(t)
 
@@ -170,8 +170,8 @@ func TestSaveClientReportToDBRebasesCounterRollbackAfterRestart(t *testing.T) {
 
 	var saved models.Record
 	require.NoError(t, db.Where("client = ? AND time = ?", clientUUID, models.FromTime(now)).First(&saved).Error)
-	assert.Equal(t, int64(10), saved.TrafficUp)
-	assert.Equal(t, int64(10), saved.TrafficDown)
+	assert.Equal(t, int64(40), saved.TrafficUp)
+	assert.Equal(t, int64(55), saved.TrafficDown)
 }
 
 func TestSaveClientReportToDBSumsCachedTrafficWithoutPersistedBaseline(t *testing.T) {

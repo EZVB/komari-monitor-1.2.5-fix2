@@ -12,7 +12,6 @@ import (
 	"github.com/komari-monitor/komari/cmd/flags"
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
-	"github.com/komari-monitor/komari/utils"
 )
 
 func RecordOne(rec models.Record) error {
@@ -452,14 +451,24 @@ func repairZeroTrafficDeltas(records []models.Record, previousByClient map[strin
 		}
 		for _, current := range clientRecords {
 			if previous == nil {
-				current.TrafficUp = 0
-				current.TrafficDown = 0
+				current.TrafficUp = nonNegativeTraffic(current.TrafficUp)
+				current.TrafficDown = nonNegativeTraffic(current.TrafficDown)
 				previous = current
 				continue
 			}
 			systemRestarted := current.Uptime > 0 && previous.Uptime > 0 && current.Uptime < previous.Uptime
-			current.TrafficUp = utils.ComputeTrafficDeltaWithReset(current.NetTotalUp, previous.NetTotalUp, systemRestarted)
-			current.TrafficDown = utils.ComputeTrafficDeltaWithReset(current.NetTotalDown, previous.NetTotalDown, systemRestarted)
+			current.TrafficUp = trafficDeltaForRecord(
+				current.TrafficUp,
+				current.NetTotalUp,
+				previous.NetTotalUp,
+				systemRestarted,
+			)
+			current.TrafficDown = trafficDeltaForRecord(
+				current.TrafficDown,
+				current.NetTotalDown,
+				previous.NetTotalDown,
+				systemRestarted,
+			)
 			previous = current
 		}
 	}

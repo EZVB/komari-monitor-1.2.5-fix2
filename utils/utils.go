@@ -152,16 +152,15 @@ func ComputeTrafficDelta(current, previous int64) int64 {
 	return ComputeTrafficDeltaWithReset(current, previous, false)
 }
 
-// ComputeTrafficDeltaWithReset treats a restart as a new counter generation.
-// The first sample establishes the new baseline and is deliberately not
-// counted, because it can contain traffic from before the monitor reconnected
-// or from a changed interface set.
+// ComputeTrafficDeltaWithReset treats a confirmed system restart as a new
+// counter generation. The current value is all traffic observed since that
+// restart, so it belongs to the new generation and must not be discarded.
 func ComputeTrafficDeltaWithReset(current, previous int64, reset bool) int64 {
 	if current < 0 || previous < 0 {
 		return 0
 	}
 	if reset {
-		return 0
+		return current
 	}
 	if current >= previous {
 		return current - previous

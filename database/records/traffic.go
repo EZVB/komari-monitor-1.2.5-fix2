@@ -182,15 +182,50 @@ func sumTrafficDeltas(
 	var totalDown int64
 
 	for i := range records {
+		upDelta := nonNegativeTraffic(records[i].TrafficUp)
+		downDelta := nonNegativeTraffic(records[i].TrafficDown)
 		if previous != nil {
 			reset := systemCounterRestarted(records[i], *previous)
-			totalUp = saturatingAddTraffic(totalUp, utils.ComputeTrafficDeltaWithReset(records[i].NetTotalUp, previous.NetTotalUp, reset))
-			totalDown = saturatingAddTraffic(totalDown, utils.ComputeTrafficDeltaWithReset(records[i].NetTotalDown, previous.NetTotalDown, reset))
+			upDelta = trafficDeltaForRecord(
+				records[i].TrafficUp,
+				records[i].NetTotalUp,
+				previous.NetTotalUp,
+				reset,
+			)
+			downDelta = trafficDeltaForRecord(
+				records[i].TrafficDown,
+				records[i].NetTotalDown,
+				previous.NetTotalDown,
+				reset,
+			)
 		}
+		totalUp = saturatingAddTraffic(totalUp, upDelta)
+		totalDown = saturatingAddTraffic(totalDown, downDelta)
 		previous = &records[i]
 	}
 
 	return totalUp, totalDown
+}
+
+func nonNegativeTraffic(value int64) int64 {
+	if value < 0 {
+		return 0
+	}
+	return value
+}
+
+func trafficDeltaForRecord(stored, current, previous int64, reset bool) int64 {
+	stored = nonNegativeTraffic(stored)
+	if stored > 0 {
+		// Persisted deltas are captured from every report before records are
+		// compacted. They retain traffic across sub-samples and counter rebases
+		// that cannot be reconstructed from two cumulative endpoint totals.
+		return stored
+	}
+
+	// Older rows did not persist exact deltas. Fall back to cumulative totals
+	// only for those rows so current data is never counted twice.
+	return utils.ComputeTrafficDeltaWithReset(current, previous, reset)
 }
 
 func systemCounterRestarted(current, previous trafficDeltaRecord) bool {

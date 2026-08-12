@@ -181,8 +181,8 @@ func TestCompactRecordPreservesExactTrafficDelta(t *testing.T) {
 	var compacted []models.Record
 	assert.NoError(t, db.Table("records_long_term").Find(&compacted).Error)
 	require.Len(t, compacted, 1)
-	assert.Equal(t, int64(50), compacted[0].TrafficUp)
-	assert.Equal(t, int64(60), compacted[0].TrafficDown)
+	assert.Equal(t, int64(60), compacted[0].TrafficUp)
+	assert.Equal(t, int64(90), compacted[0].TrafficDown)
 	assert.Equal(t, int64(10), compacted[0].NetTotalUp)
 	assert.Equal(t, int64(30), compacted[0].NetTotalDown)
 	assert.True(t, compacted[0].Time.ToTime().Equal(records[2].Time.ToTime().Truncate(15*time.Minute)))
@@ -204,8 +204,8 @@ func TestRepairZeroTrafficDeltasPreservesRawResetDetailBeforeCompaction(t *testi
 	assert.Equal(t, int64(0), records[0].TrafficDown)
 	assert.Equal(t, int64(40), records[1].TrafficUp)
 	assert.Equal(t, int64(60), records[1].TrafficDown)
-	assert.Equal(t, int64(0), records[2].TrafficUp)
-	assert.Equal(t, int64(0), records[2].TrafficDown)
+	assert.Equal(t, int64(10), records[2].TrafficUp)
+	assert.Equal(t, int64(20), records[2].TrafficDown)
 	assert.Equal(t, int64(15), records[3].TrafficUp)
 	assert.Equal(t, int64(15), records[3].TrafficDown)
 }
