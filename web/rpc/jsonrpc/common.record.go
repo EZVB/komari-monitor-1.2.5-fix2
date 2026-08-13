@@ -525,30 +525,7 @@ func getLoadRecordsCombined(uuid string, start, end time.Time) ([]models.Record,
 	var longTerm []models.Record
 	_ = db.Table("records_long_term").Where("time >= ? AND time <= ?", start, end).Order("time ASC").Find(&longTerm).Error
 
-	// if no long term, return all recent
-	if len(longTerm) == 0 {
-		return recent, nil
-	}
-
-	// group recent by client+15min, keep latest in bucket
-	type key struct {
-		c    string
-		slot string
-	}
-	grouped := make(map[key]models.Record)
-	for _, rec := range recent {
-		k := key{c: rec.Client, slot: rec.Time.ToTime().Truncate(15 * time.Minute).Format(time.RFC3339)}
-		if old, ok := grouped[k]; !ok || rec.Time.ToTime().After(old.Time.ToTime()) {
-			grouped[k] = rec
-		}
-	}
-	flat := make([]models.Record, 0, len(grouped))
-	for _, rec := range grouped {
-		flat = append(flat, rec)
-	}
-	sort.Slice(flat, func(i, j int) bool { return flat[i].Time.ToTime().Before(flat[j].Time.ToTime()) })
-	flat = append(flat, longTerm...)
-	return flat, nil
+	return recordsdb.MergeRecordHistory(recent, longTerm), nil
 }
 
 // ---------- downsampling helpers ----------

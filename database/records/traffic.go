@@ -56,12 +56,13 @@ func GetTrafficTotalsInRangeWithDB(
 	}
 
 	var longTermRecords []trafficDeltaRecord
+	longTermStart := start.In(models.GetAppLocation()).Truncate(15 * time.Minute)
 	if err := db.Table("records_long_term").
 		Select(trafficDeltaSelectColumns).
 		Where(
 			"client = ? AND time >= ? AND time <= ?",
 			clientUUID,
-			models.FromTime(start),
+			models.FromTime(longTermStart),
 			models.FromTime(end),
 		).
 		Find(&longTermRecords).Error; err != nil {
@@ -88,35 +89,68 @@ func mergeTrafficDeltaRecords(
 	recentRecords []trafficDeltaRecord,
 	longTermRecords []trafficDeltaRecord,
 ) []trafficDeltaRecord {
-	rawSlots := make(map[time.Time]struct{}, len(recentRecords))
+	recentRecords = deduplicateTrafficRecords(recentRecords, false)
+	longTermRecords = deduplicateTrafficRecords(longTermRecords, true)
+
+	rawSlots := make(map[int64]struct{}, len(recentRecords))
 	for _, record := range recentRecords {
-		rawSlots[record.Time.ToTime().Truncate(15*time.Minute)] = struct{}{}
+		rawSlots[trafficRecordSlot(record)] = struct{}{}
 	}
 
-	longTermSlots := make(map[time.Time]struct{}, len(longTermRecords))
 	merged := make(
 		[]trafficDeltaRecord,
 		0,
 		len(longTermRecords)+len(recentRecords),
 	)
 	for _, record := range longTermRecords {
-		slot := record.Time.ToTime().Truncate(15 * time.Minute)
+		slot := trafficRecordSlot(record)
 		if _, hasRawSlot := rawSlots[slot]; hasRawSlot {
 			continue
 		}
-		longTermSlots[slot] = struct{}{}
 		merged = append(merged, record)
 	}
 
-	for _, record := range recentRecords {
-		slot := record.Time.ToTime().Truncate(15 * time.Minute)
-		if _, exists := longTermSlots[slot]; exists {
-			continue
-		}
-		merged = append(merged, record)
-	}
+	merged = append(merged, recentRecords...)
 
 	return merged
+}
+
+func deduplicateTrafficRecords(
+	records []trafficDeltaRecord,
+	bySlot bool,
+) []trafficDeltaRecord {
+	unique := make(map[int64]trafficDeltaRecord, len(records))
+	for _, record := range records {
+		key := record.Time.ToTime().UnixNano()
+		if bySlot {
+			key = trafficRecordSlot(record)
+		}
+		if existing, ok := unique[key]; !ok || preferTrafficRecord(record, existing) {
+			unique[key] = record
+		}
+	}
+
+	result := make([]trafficDeltaRecord, 0, len(unique))
+	for _, record := range unique {
+		result = append(result, record)
+	}
+	return result
+}
+
+func trafficRecordSlot(record trafficDeltaRecord) int64 {
+	return record.Time.ToTime().Truncate(15 * time.Minute).Unix()
+}
+
+func preferTrafficRecord(candidate, existing trafficDeltaRecord) bool {
+	candidateDelta := nonNegativeTraffic(candidate.TrafficUp) +
+		nonNegativeTraffic(candidate.TrafficDown)
+	existingDelta := nonNegativeTraffic(existing.TrafficUp) +
+		nonNegativeTraffic(existing.TrafficDown)
+	if candidateDelta != existingDelta {
+		return candidateDelta > existingDelta
+	}
+	return candidate.NetTotalUp+candidate.NetTotalDown >
+		existing.NetTotalUp+existing.NetTotalDown
 }
 
 func getPreviousTrafficDeltaRecord(

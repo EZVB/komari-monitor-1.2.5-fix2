@@ -342,3 +342,45 @@ func TestCompactRecordOnlyMigratesCompleteFifteenMinuteBuckets(t *testing.T) {
 	assert.NoError(t, db.Table("records").Where("time = ?", partialSlot.Time).Count(&rawCount).Error)
 	assert.Equal(t, int64(1), rawCount)
 }
+
+func TestCompactRecordIsIdempotentForExistingSlot(t *testing.T) {
+	loc := models.GetAppLocation()
+	now := time.Date(2026, 8, 12, 18, 30, 0, 0, loc)
+	recordTime := now.Add(-5*time.Hour + time.Minute)
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.Record{}))
+	require.NoError(t, db.Table("records_long_term").AutoMigrate(&models.Record{}))
+
+	require.NoError(t, db.Create(&models.Record{
+		Client:      uuid,
+		Time:        models.FromTime(recordTime),
+		TrafficUp:   100,
+		TrafficDown: 200,
+	}).Error)
+
+	require.NoError(t, migrateOldRecordsAt(db, now))
+	require.NoError(t, migrateOldRecordsAt(db, now))
+
+	var count int64
+	require.NoError(t, db.Table("records_long_term").Count(&count).Error)
+	assert.Equal(t, int64(1), count)
+}
+
+func TestMergeRecordHistoryDeduplicatesLongTermAndPrefersRaw(t *testing.T) {
+	start := time.Date(2026, 8, 12, 7, 30, 0, 0, models.GetAppLocation())
+	recent := []models.Record{
+		{Client: uuid, Time: models.FromTime(start.Add(time.Minute)), Cpu: 10},
+		{Client: uuid, Time: models.FromTime(start.Add(2 * time.Minute)), Cpu: 20},
+	}
+	longTerm := []models.Record{
+		{Client: uuid, Time: models.FromTime(start), Cpu: 30, TrafficUp: 100},
+		{Client: uuid, Time: models.FromTime(start), Cpu: 30, TrafficUp: 100},
+		{Client: uuid, Time: models.FromTime(start.Add(15 * time.Minute)), Cpu: 40},
+	}
+
+	merged := MergeRecordHistory(recent, longTerm)
+	require.Len(t, merged, 2)
+	assert.Equal(t, float32(20), merged[0].Cpu)
+	assert.Equal(t, float32(40), merged[1].Cpu)
+}

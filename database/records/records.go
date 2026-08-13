@@ -5,6 +5,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -13,6 +14,8 @@ import (
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
 )
+
+var compactRecordMu sync.Mutex
 
 func RecordOne(rec models.Record) error {
 	db := dbcore.GetDBInstance()
@@ -90,7 +93,6 @@ func DeleteRecordBefore(before time.Time) error {
 
 func GetRecordsByClientAndTime(uuid string, start, end time.Time) ([]models.Record, error) {
 	db := dbcore.GetDBInstance()
-	var records []models.Record
 
 	fourHoursAgo := time.Now().Add(-4*time.Hour - time.Minute)
 
@@ -114,30 +116,80 @@ func GetRecordsByClientAndTime(uuid string, start, end time.Time) ([]models.Reco
 		return recentRecords, nil
 	}
 
-	if len(long_term) == 0 {
-		// 没有查到long_term，返回全部recentRecords
-		records = append(records, recentRecords...)
-		return records, nil
+	return MergeRecordHistory(recentRecords, long_term), nil
+}
+
+type recordHistorySlot struct {
+	client string
+	time   int64
+}
+
+// MergeRecordHistory removes duplicate compacted buckets and lets raw data
+// replace a compacted bucket while the one-hour overlap window is retained.
+func MergeRecordHistory(recent, longTerm []models.Record) []models.Record {
+	if len(longTerm) == 0 {
+		return recent
 	}
 
-	// 查到了long_term，recentRecords按15分钟分组，每组只保留一条（取最新一条）
-	grouped := make(map[string]models.Record)
-	for _, rec := range recentRecords {
-		key := rec.Time.ToTime().Truncate(15 * time.Minute).Format(time.RFC3339)
-		if old, ok := grouped[key]; !ok || rec.Time.ToTime().After(old.Time.ToTime()) {
-			grouped[key] = rec
+	recentBySlot := make(map[recordHistorySlot]models.Record, len(recent))
+	for _, record := range recent {
+		key := historyRecordSlot(record)
+		if existing, ok := recentBySlot[key]; !ok ||
+			record.Time.ToTime().After(existing.Time.ToTime()) {
+			recentBySlot[key] = record
 		}
 	}
-	var groupedList []models.Record
-	for _, rec := range grouped {
-		groupedList = append(groupedList, rec)
+
+	longTermBySlot := make(map[recordHistorySlot]models.Record, len(longTerm))
+	for _, record := range longTerm {
+		key := historyRecordSlot(record)
+		if existing, ok := longTermBySlot[key]; !ok ||
+			preferHistoryRecord(record, existing) {
+			longTermBySlot[key] = record
+		}
 	}
-	sort.Slice(groupedList, func(i, j int) bool {
-		return groupedList[i].Time.ToTime().Before(groupedList[j].Time.ToTime())
+
+	merged := make([]models.Record, 0, len(recentBySlot)+len(longTermBySlot))
+	for key, record := range longTermBySlot {
+		if _, hasRaw := recentBySlot[key]; !hasRaw {
+			merged = append(merged, record)
+		}
+	}
+	for _, record := range recentBySlot {
+		merged = append(merged, record)
+	}
+	sort.Slice(merged, func(i, j int) bool {
+		left := merged[i].Time.ToTime()
+		right := merged[j].Time.ToTime()
+		if left.Equal(right) {
+			return merged[i].Client < merged[j].Client
+		}
+		return left.Before(right)
 	})
-	records = append(records, groupedList...)
-	records = append(records, long_term...)
-	return records, nil
+	return merged
+}
+
+func historyRecordSlot(record models.Record) recordHistorySlot {
+	return recordHistorySlot{
+		client: record.Client,
+		time:   record.Time.ToTime().Truncate(15 * time.Minute).Unix(),
+	}
+}
+
+func preferHistoryRecord(candidate, existing models.Record) bool {
+	candidateTraffic := saturatingAddTraffic(
+		nonNegativeTraffic(candidate.TrafficUp),
+		nonNegativeTraffic(candidate.TrafficDown),
+	)
+	existingTraffic := saturatingAddTraffic(
+		nonNegativeTraffic(existing.TrafficUp),
+		nonNegativeTraffic(existing.TrafficDown),
+	)
+	if candidateTraffic != existingTraffic {
+		return candidateTraffic > existingTraffic
+	}
+	return candidate.NetTotalUp+candidate.NetTotalDown >
+		existing.NetTotalUp+existing.NetTotalDown
 }
 
 func GetAllRecords() ([]models.Record, error) {
@@ -160,6 +212,9 @@ func GetAllRecords() ([]models.Record, error) {
 
 // 压缩数据库
 func CompactRecord() error {
+	compactRecordMu.Lock()
+	defer compactRecordMu.Unlock()
+
 	db := dbcore.GetDBInstance()
 	err := migrateOldRecords(db)
 	if err != nil {
@@ -337,7 +392,8 @@ func migrateOldRecordsAt(db *gorm.DB, now time.Time) error {
 			high_percentile := 0.7
 			// 检查 records_long_term 表中是否已存在相同的记录
 			var existingCount int64
-			if err := tx.Table("records_long_term").Where("client = ? AND time = ?", clientUUID, timeSlot).Count(&existingCount).Error; err != nil {
+			slotValue := models.FromTime(timeSlot)
+			if err := tx.Table("records_long_term").Where("client = ? AND time = ?", clientUUID, slotValue).Count(&existingCount).Error; err != nil {
 				return err
 			}
 
@@ -368,7 +424,7 @@ func migrateOldRecordsAt(db *gorm.DB, now time.Time) error {
 
 			// 如果记录已存在则更新，否则创建新记录
 			if existingCount > 0 {
-				if err := tx.Table("records_long_term").Where("client = ? AND time = ?", clientUUID, timeSlot).Updates(&newRec).Error; err != nil {
+				if err := tx.Table("records_long_term").Where("client = ? AND time = ?", clientUUID, slotValue).Updates(&newRec).Error; err != nil {
 					return err
 				}
 			} else {

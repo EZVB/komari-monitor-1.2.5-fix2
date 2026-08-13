@@ -6,7 +6,82 @@ import (
 
 	"github.com/komari-monitor/komari/database/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
+
+func TestMergeTrafficDeltaRecordsDeduplicatesLongTermBuckets(t *testing.T) {
+	start := time.Date(2026, 8, 12, 7, 30, 0, 0, time.UTC)
+	duplicate := trafficDeltaRecord{
+		Time:         models.FromTime(start),
+		NetTotalUp:   1_000,
+		NetTotalDown: 2_000,
+		TrafficUp:    100,
+		TrafficDown:  200,
+	}
+	merged := mergeTrafficDeltaRecords(nil, []trafficDeltaRecord{
+		duplicate,
+		duplicate,
+		duplicate,
+		{
+			Time:         models.FromTime(start.Add(15 * time.Minute)),
+			NetTotalUp:   1_050,
+			NetTotalDown: 2_075,
+			TrafficUp:    50,
+			TrafficDown:  75,
+		},
+	})
+
+	require.Len(t, merged, 2)
+	up, down := sumTrafficDeltas(merged, nil)
+	assert.Equal(t, int64(150), up)
+	assert.Equal(t, int64(275), down)
+}
+
+func TestMergeTrafficDeltaRecordsPrefersRawOverlap(t *testing.T) {
+	start := time.Date(2026, 8, 12, 7, 30, 0, 0, time.UTC)
+	recent := []trafficDeltaRecord{
+		{Time: models.FromTime(start.Add(time.Minute)), TrafficUp: 10, TrafficDown: 20},
+		{Time: models.FromTime(start.Add(2 * time.Minute)), TrafficUp: 30, TrafficDown: 40},
+	}
+	longTerm := []trafficDeltaRecord{
+		{Time: models.FromTime(start), TrafficUp: 500, TrafficDown: 600},
+	}
+
+	merged := mergeTrafficDeltaRecords(recent, longTerm)
+	require.Len(t, merged, 2)
+	up, down := sumTrafficDeltas(merged, nil)
+	assert.Equal(t, int64(40), up)
+	assert.Equal(t, int64(60), down)
+}
+
+func TestTrafficRangeIncludesCompactedBucketContainingManualBaseline(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.Record{}))
+	require.NoError(t, db.Table("records_long_term").AutoMigrate(&models.Record{}))
+
+	start := time.Date(2026, 8, 12, 7, 35, 0, 0, time.UTC)
+	rows := []models.Record{
+		{Client: uuid, Time: models.FromTime(start.Truncate(15 * time.Minute)), TrafficUp: 100, TrafficDown: 200},
+		{Client: uuid, Time: models.FromTime(start.Truncate(15 * time.Minute)), TrafficUp: 100, TrafficDown: 200},
+		{Client: uuid, Time: models.FromTime(start.Truncate(15 * time.Minute).Add(15 * time.Minute)), TrafficUp: 50, TrafficDown: 75},
+	}
+	for _, row := range rows {
+		require.NoError(t, db.Table("records_long_term").Create(&row).Error)
+	}
+
+	up, down, err := GetTrafficTotalsInRangeWithDB(
+		db,
+		uuid,
+		start,
+		start.Add(time.Hour),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, int64(150), up)
+	assert.Equal(t, int64(275), down)
+}
 
 func TestSumTrafficDeltasUsesPersistedExactDeltas(t *testing.T) {
 	start := time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)

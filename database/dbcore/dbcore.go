@@ -314,6 +314,11 @@ func GetDBInstance() *gorm.DB {
 		if err != nil {
 			log.Printf("Failed to create records_long_term table, it may already exist: %v", err)
 		}
+		if flags.IsSQLite() {
+			if err := ensureLongTermRecordIntegrity(instance); err != nil {
+				log.Fatalf("Failed to repair long-term record integrity: %v", err)
+			}
+		}
 		err = instance.Table("gpu_records_long_term").AutoMigrate(
 			&models.GPURecord{},
 		)
@@ -338,4 +343,26 @@ func GetDBInstance() *gorm.DB {
 	})
 
 	return instance
+}
+
+func ensureLongTermRecordIntegrity(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Older builds could insert the same 15-minute bucket repeatedly because
+		// the existence query and LocalTime used different timezone encodings.
+		if err := tx.Exec(`
+			DELETE FROM records_long_term
+			WHERE rowid NOT IN (
+				SELECT MAX(rowid)
+				FROM records_long_term
+				GROUP BY client, time
+			)
+		`).Error; err != nil {
+			return err
+		}
+		return tx.Exec(`
+			CREATE UNIQUE INDEX IF NOT EXISTS
+			idx_record_lt_client_time_unique
+			ON records_long_term(client, time)
+		`).Error
+	})
 }
