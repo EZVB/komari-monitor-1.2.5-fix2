@@ -234,3 +234,57 @@ func TestSumTrafficDeltasRejectsLegacyZeroDeltaRollbackWithoutRestartEvidence(t 
 	assert.Equal(t, int64(0), up)
 	assert.Equal(t, int64(0), down)
 }
+
+func TestTrafficOverviewAggregatesAllSelectedClientsByCalendarPeriod(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.Record{}))
+	require.NoError(t, db.Table("records_long_term").AutoMigrate(&models.Record{}))
+
+	location := time.FixedZone("UTC+8", 8*60*60)
+	now := time.Date(2026, 8, 17, 12, 0, 0, 0, location)
+	rows := []models.Record{
+		{
+			Client:      "client-a",
+			Time:        models.FromTime(time.Date(2026, 8, 1, 1, 0, 0, 0, location)),
+			TrafficUp:   100,
+			TrafficDown: 200,
+		},
+		{
+			Client:      "client-a",
+			Time:        models.FromTime(time.Date(2026, 8, 16, 23, 59, 0, 0, location)),
+			TrafficUp:   50,
+			TrafficDown: 60,
+		},
+		{
+			Client:      "client-a",
+			Time:        models.FromTime(time.Date(2026, 8, 17, 1, 0, 0, 0, location)),
+			TrafficUp:   10,
+			TrafficDown: 20,
+		},
+		{
+			Client:      "client-b",
+			Time:        models.FromTime(time.Date(2026, 8, 17, 2, 0, 0, 0, location)),
+			TrafficUp:   30,
+			TrafficDown: 40,
+		},
+		{
+			Client:      "not-selected",
+			Time:        models.FromTime(time.Date(2026, 8, 17, 3, 0, 0, 0, location)),
+			TrafficUp:   500,
+			TrafficDown: 600,
+		},
+	}
+	for _, row := range rows {
+		require.NoError(t, db.Create(&row).Error)
+	}
+
+	overview, err := GetTrafficOverviewWithDB(
+		db,
+		[]string{"client-a", "client-b", "client-a"},
+		now,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, TrafficPeriodTotals{Up: 40, Down: 60, Total: 100}, overview.Today)
+	assert.Equal(t, TrafficPeriodTotals{Up: 190, Down: 320, Total: 510}, overview.Month)
+}

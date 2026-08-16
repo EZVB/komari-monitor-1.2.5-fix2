@@ -13,12 +13,148 @@ import (
 )
 
 type trafficDeltaRecord struct {
+	Client       string           `gorm:"column:client"`
 	Time         models.LocalTime `gorm:"column:time"`
 	NetTotalUp   int64            `gorm:"column:net_total_up"`
 	NetTotalDown int64            `gorm:"column:net_total_down"`
 	TrafficUp    int64            `gorm:"column:traffic_up"`
 	TrafficDown  int64            `gorm:"column:traffic_down"`
 	Uptime       int64            `gorm:"column:uptime"`
+}
+
+// TrafficPeriodTotals contains the recorded upload and download traffic for a
+// calendar period.
+type TrafficPeriodTotals struct {
+	Up    int64 `json:"up"`
+	Down  int64 `json:"down"`
+	Total int64 `json:"total"`
+}
+
+// TrafficOverviewTotals contains calendar-day and calendar-month traffic for
+// a set of clients.
+type TrafficOverviewTotals struct {
+	Today TrafficPeriodTotals `json:"today"`
+	Month TrafficPeriodTotals `json:"month"`
+}
+
+// GetTrafficOverview returns traffic for the current calendar day and month
+// in the application's configured timezone.
+func GetTrafficOverview(clientUUIDs []string, now time.Time) (TrafficOverviewTotals, error) {
+	return GetTrafficOverviewWithDB(
+		dbcore.GetDBInstance(),
+		clientUUIDs,
+		now.In(models.GetAppLocation()),
+	)
+}
+
+// GetTrafficOverviewWithDB is the testable form of GetTrafficOverview.
+func GetTrafficOverviewWithDB(
+	db *gorm.DB,
+	clientUUIDs []string,
+	now time.Time,
+) (TrafficOverviewTotals, error) {
+	var overview TrafficOverviewTotals
+	clientUUIDs = uniqueTrafficClientUUIDs(clientUUIDs)
+	if len(clientUUIDs) == 0 {
+		return overview, nil
+	}
+
+	location := now.Location()
+	now = now.In(location)
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, location)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+
+	var recentRecords []trafficDeltaRecord
+	if err := db.Table("records").
+		Select(trafficOverviewSelectColumns).
+		Where(
+			"client IN ? AND time >= ? AND time <= ?",
+			clientUUIDs,
+			models.FromTime(monthStart),
+			models.FromTime(now),
+		).
+		Find(&recentRecords).Error; err != nil {
+		return overview, err
+	}
+
+	var longTermRecords []trafficDeltaRecord
+	if err := db.Table("records_long_term").
+		Select(trafficOverviewSelectColumns).
+		Where(
+			"client IN ? AND time >= ? AND time <= ?",
+			clientUUIDs,
+			models.FromTime(monthStart.Truncate(15*time.Minute)),
+			models.FromTime(now),
+		).
+		Find(&longTermRecords).Error; err != nil {
+		return overview, err
+	}
+
+	recentByClient := groupTrafficRecordsByClient(recentRecords)
+	longTermByClient := groupTrafficRecordsByClient(longTermRecords)
+
+	for _, clientUUID := range clientUUIDs {
+		merged := mergeTrafficDeltaRecords(
+			recentByClient[clientUUID],
+			longTermByClient[clientUUID],
+		)
+		sort.Slice(merged, func(i, j int) bool {
+			return merged[i].Time.ToTime().Before(merged[j].Time.ToTime())
+		})
+
+		monthPrevious, err := getPreviousTrafficDeltaRecord(db, clientUUID, monthStart)
+		if err != nil {
+			return overview, err
+		}
+		monthUp, monthDown := sumTrafficDeltas(merged, monthPrevious)
+		overview.Month.Up = saturatingAddTraffic(overview.Month.Up, monthUp)
+		overview.Month.Down = saturatingAddTraffic(overview.Month.Down, monthDown)
+
+		todayIndex := sort.Search(len(merged), func(index int) bool {
+			return !merged[index].Time.ToTime().Before(todayStart)
+		})
+		todayPrevious := monthPrevious
+		if todayIndex > 0 {
+			previous := merged[todayIndex-1]
+			todayPrevious = &previous
+		} else if todayStart.After(monthStart) {
+			todayPrevious, err = getPreviousTrafficDeltaRecord(db, clientUUID, todayStart)
+			if err != nil {
+				return overview, err
+			}
+		}
+		todayUp, todayDown := sumTrafficDeltas(merged[todayIndex:], todayPrevious)
+		overview.Today.Up = saturatingAddTraffic(overview.Today.Up, todayUp)
+		overview.Today.Down = saturatingAddTraffic(overview.Today.Down, todayDown)
+	}
+
+	overview.Today.Total = saturatingAddTraffic(overview.Today.Up, overview.Today.Down)
+	overview.Month.Total = saturatingAddTraffic(overview.Month.Up, overview.Month.Down)
+	return overview, nil
+}
+
+func uniqueTrafficClientUUIDs(clientUUIDs []string) []string {
+	seen := make(map[string]struct{}, len(clientUUIDs))
+	unique := make([]string, 0, len(clientUUIDs))
+	for _, clientUUID := range clientUUIDs {
+		if clientUUID == "" {
+			continue
+		}
+		if _, exists := seen[clientUUID]; exists {
+			continue
+		}
+		seen[clientUUID] = struct{}{}
+		unique = append(unique, clientUUID)
+	}
+	return unique
+}
+
+func groupTrafficRecordsByClient(records []trafficDeltaRecord) map[string][]trafficDeltaRecord {
+	grouped := make(map[string][]trafficDeltaRecord)
+	for _, record := range records {
+		grouped[record.Client] = append(grouped[record.Client], record)
+	}
+	return grouped
 }
 
 // GetTrafficTotalsInRange returns reset-aware upload and download deltas.
@@ -84,6 +220,7 @@ func GetTrafficTotalsInRangeWithDB(
 }
 
 const trafficDeltaSelectColumns = "time, net_total_up, net_total_down, traffic_up, traffic_down, uptime"
+const trafficOverviewSelectColumns = "client, " + trafficDeltaSelectColumns
 
 func mergeTrafficDeltaRecords(
 	recentRecords []trafficDeltaRecord,

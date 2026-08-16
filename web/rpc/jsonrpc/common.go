@@ -12,6 +12,7 @@ import (
 	"github.com/komari-monitor/komari/database/clients"
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
+	"github.com/komari-monitor/komari/database/records"
 	"github.com/komari-monitor/komari/database/tasks"
 	"github.com/komari-monitor/komari/pkg/config"
 	"github.com/komari-monitor/komari/pkg/rpc"
@@ -25,6 +26,7 @@ import (
 
 // pingstats:<uuid>
 var pingStatsCache = cache.New(1*time.Minute, 2*time.Minute)
+var trafficOverviewCache = cache.New(30*time.Second, time.Minute)
 
 type pingStat struct {
 	Name   string  `json:"name"`
@@ -207,6 +209,16 @@ func init() {
 			Returns: "Record | { [uuid]: Record }",
 		},
 	)
+	RegisterWithGroupAndMeta("getTrafficOverview", "common",
+		func(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
+			return getTrafficOverview(ctx, req)
+		},
+		&rpc.MethodMeta{
+			Name:    "getTrafficOverview",
+			Summary: "Get aggregate traffic for the current calendar day and month.",
+			Returns: "{ today: TrafficPeriodTotals, month: TrafficPeriodTotals }",
+		},
+	)
 	Register("getMe", func(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
 		return getMe(ctx, req)
 	})
@@ -275,6 +287,37 @@ func getNodes(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcEr
 		nodeMap[node.UUID] = node
 	}
 	return nodeMap, nil
+}
+
+func getTrafficOverview(ctx context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
+	meta := rpc.MetaFromContext(ctx)
+	isAdmin := meta.Principal != nil && meta.Principal.HasRole(rpc.RoleAdmin)
+	cacheKey := fmt.Sprintf("traffic-overview:%t:%d", isAdmin, clients.Revision())
+	if cached, found := trafficOverviewCache.Get(cacheKey); found {
+		if overview, ok := cached.(records.TrafficOverviewTotals); ok {
+			return overview, nil
+		}
+	}
+
+	clientInfo, err := clients.GetAllClientBasicInfo()
+	if err != nil {
+		return nil, rpc.MakeError(rpc.InternalError, "Failed to get client info", err.Error())
+	}
+
+	clientUUIDs := make([]string, 0, len(clientInfo))
+	for _, client := range clientInfo {
+		if !isAdmin && client.Hidden {
+			continue
+		}
+		clientUUIDs = append(clientUUIDs, client.UUID)
+	}
+
+	overview, err := records.GetTrafficOverview(clientUUIDs, time.Now())
+	if err != nil {
+		return nil, rpc.MakeError(rpc.InternalError, "Failed to aggregate traffic", err.Error())
+	}
+	trafficOverviewCache.Set(cacheKey, overview, cache.DefaultExpiration)
+	return overview, nil
 }
 
 func getPublicInfo(_ context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
