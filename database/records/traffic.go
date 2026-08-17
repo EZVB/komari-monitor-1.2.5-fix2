@@ -37,13 +37,17 @@ type TrafficOverviewTotals struct {
 	Month TrafficPeriodTotals `json:"month"`
 }
 
-// GetTrafficOverview returns traffic for the current calendar day and month
-// in the application's configured timezone.
+// The overview is defined in Shanghai time. A fixed UTC+8 zone keeps its
+// calendar boundaries independent from the container's TZ setting.
+var trafficOverviewLocation = time.FixedZone("Asia/Shanghai", 8*60*60)
+
+// GetTrafficOverview returns traffic for the current Shanghai calendar day
+// and month.
 func GetTrafficOverview(clientUUIDs []string, now time.Time) (TrafficOverviewTotals, error) {
 	return GetTrafficOverviewWithDB(
 		dbcore.GetDBInstance(),
 		clientUUIDs,
-		now.In(models.GetAppLocation()),
+		now,
 	)
 }
 
@@ -59,16 +63,19 @@ func GetTrafficOverviewWithDB(
 		return overview, nil
 	}
 
-	location := now.Location()
-	now = now.In(location)
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, location)
-	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+	now = now.In(trafficOverviewLocation)
+	monthStart := time.Date(
+		now.Year(), now.Month(), 1, 0, 0, 0, 0, trafficOverviewLocation,
+	)
+	todayStart := time.Date(
+		now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, trafficOverviewLocation,
+	)
 
 	var recentRecords []trafficDeltaRecord
 	if err := db.Table("records").
 		Select(trafficOverviewSelectColumns).
 		Where(
-			"client IN ? AND time >= ? AND time <= ?",
+			"client IN ? AND time >= ? AND time < ?",
 			clientUUIDs,
 			models.FromTime(monthStart),
 			models.FromTime(now),
@@ -81,9 +88,9 @@ func GetTrafficOverviewWithDB(
 	if err := db.Table("records_long_term").
 		Select(trafficOverviewSelectColumns).
 		Where(
-			"client IN ? AND time >= ? AND time <= ?",
+			"client IN ? AND time >= ? AND time < ?",
 			clientUUIDs,
-			models.FromTime(monthStart.Truncate(15*time.Minute)),
+			models.FromTime(monthStart),
 			models.FromTime(now),
 		).
 		Find(&longTermRecords).Error; err != nil {

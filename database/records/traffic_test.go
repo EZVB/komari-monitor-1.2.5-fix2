@@ -275,8 +275,12 @@ func TestTrafficOverviewAggregatesAllSelectedClientsByCalendarPeriod(t *testing.
 			TrafficDown: 600,
 		},
 	}
-	for _, row := range rows {
-		require.NoError(t, db.Create(&row).Error)
+	for index, row := range rows {
+		target := db
+		if index < 3 {
+			target = db.Table("records_long_term")
+		}
+		require.NoError(t, target.Create(&row).Error)
 	}
 
 	overview, err := GetTrafficOverviewWithDB(
@@ -287,4 +291,69 @@ func TestTrafficOverviewAggregatesAllSelectedClientsByCalendarPeriod(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, TrafficPeriodTotals{Up: 40, Down: 60, Total: 100}, overview.Today)
 	assert.Equal(t, TrafficPeriodTotals{Up: 190, Down: 320, Total: 510}, overview.Month)
+}
+
+func TestTrafficOverviewUsesShanghaiCalendarBoundaries(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.Record{}))
+	require.NoError(t, db.Table("records_long_term").AutoMigrate(&models.Record{}))
+
+	// 2026-08-17 16:30 UTC is 2026-08-18 00:30 in Shanghai. The test process
+	// itself runs in UTC, so this also guards against inheriting the host TZ.
+	now := time.Date(2026, 8, 17, 16, 30, 0, 0, time.UTC)
+	rows := []models.Record{
+		{
+			Client:      "client-a",
+			Time:        models.FromTime(time.Date(2026, 7, 31, 15, 59, 0, 0, time.UTC)),
+			TrafficUp:   1_000,
+			TrafficDown: 2_000,
+		},
+		{
+			Client:      "client-a",
+			Time:        models.FromTime(time.Date(2026, 7, 31, 16, 0, 0, 0, time.UTC)),
+			TrafficUp:   10,
+			TrafficDown: 20,
+		},
+		{
+			Client:      "client-a",
+			Time:        models.FromTime(time.Date(2026, 8, 17, 15, 59, 0, 0, time.UTC)),
+			TrafficUp:   30,
+			TrafficDown: 40,
+		},
+		{
+			Client:      "client-a",
+			Time:        models.FromTime(time.Date(2026, 8, 17, 16, 0, 0, 0, time.UTC)),
+			TrafficUp:   50,
+			TrafficDown: 60,
+		},
+		{
+			Client:      "client-b",
+			Time:        models.FromTime(time.Date(2026, 8, 17, 16, 29, 0, 0, time.UTC)),
+			TrafficUp:   70,
+			TrafficDown: 80,
+		},
+		{
+			Client:      "client-b",
+			Time:        models.FromTime(now),
+			TrafficUp:   5_000,
+			TrafficDown: 6_000,
+		},
+	}
+	for index, row := range rows {
+		target := db
+		if index < 3 {
+			target = db.Table("records_long_term")
+		}
+		require.NoError(t, target.Create(&row).Error)
+	}
+
+	overview, err := GetTrafficOverviewWithDB(
+		db,
+		[]string{"client-a", "client-b"},
+		now,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, TrafficPeriodTotals{Up: 120, Down: 140, Total: 260}, overview.Today)
+	assert.Equal(t, TrafficPeriodTotals{Up: 160, Down: 200, Total: 360}, overview.Month)
 }

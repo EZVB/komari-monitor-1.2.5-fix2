@@ -240,7 +240,7 @@ func getNodes(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcEr
 		UUID string `json:"uuid"`
 	}
 	req.BindParams(&params)
-	cinfo, err := clients.GetAllClientBasicInfo()
+	cinfo, err := clients.GetAllClientBasicInfoWithTraffic()
 	if err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to get client info", cinfo)
 	}
@@ -292,7 +292,14 @@ func getNodes(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcEr
 func getTrafficOverview(ctx context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
 	meta := rpc.MetaFromContext(ctx)
 	isAdmin := meta.Principal != nil && meta.Principal.HasRole(rpc.RoleAdmin)
-	cacheKey := fmt.Sprintf("traffic-overview:%t:%d", isAdmin, clients.Revision())
+	now := time.Now()
+	shanghaiDate := now.UTC().Add(8 * time.Hour).Format("2006-01-02")
+	cacheKey := fmt.Sprintf(
+		"traffic-overview:%t:%d:%s",
+		isAdmin,
+		clients.Revision(),
+		shanghaiDate,
+	)
 	if cached, found := trafficOverviewCache.Get(cacheKey); found {
 		if overview, ok := cached.(records.TrafficOverviewTotals); ok {
 			return overview, nil
@@ -312,7 +319,7 @@ func getTrafficOverview(ctx context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.J
 		clientUUIDs = append(clientUUIDs, client.UUID)
 	}
 
-	overview, err := records.GetTrafficOverview(clientUUIDs, time.Now())
+	overview, err := records.GetTrafficOverview(clientUUIDs, now)
 	if err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to aggregate traffic", err.Error())
 	}
