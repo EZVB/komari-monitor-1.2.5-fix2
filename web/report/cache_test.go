@@ -19,7 +19,6 @@ func openReportCacheTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&models.Record{}))
 	require.NoError(t, db.Table("records_long_term").AutoMigrate(&models.Record{}))
-	require.NoError(t, db.AutoMigrate(&models.TrafficDailyTotal{}))
 	require.NoError(t, db.AutoMigrate(&models.GPURecord{}))
 	return db
 }
@@ -104,16 +103,6 @@ func TestSaveClientReportToDBStoresCachedTrafficDelta(t *testing.T) {
 	assert.Equal(t, int64(320), saved.NetTotalDown)
 	assert.Equal(t, int64(75), saved.TrafficUp)
 	assert.Equal(t, int64(120), saved.TrafficDown)
-
-	var daily models.TrafficDailyTotal
-	require.NoError(t, db.First(
-		&daily,
-		"client = ? AND day = ?",
-		clientUUID,
-		"2026-06-13",
-	).Error)
-	assert.Equal(t, int64(75), daily.TrafficUp)
-	assert.Equal(t, int64(120), daily.TrafficDown)
 }
 
 func TestSaveClientReportToDBRebasesCounterRollbackWithoutRestart(t *testing.T) {

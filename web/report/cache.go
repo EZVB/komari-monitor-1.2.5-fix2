@@ -11,7 +11,6 @@ import (
 	"github.com/komari-monitor/komari/database/clients"
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
-	recordstore "github.com/komari-monitor/komari/database/records"
 	"github.com/komari-monitor/komari/protocol/v1"
 	"github.com/komari-monitor/komari/utils"
 	"github.com/patrickmn/go-cache"
@@ -105,9 +104,6 @@ func saveClientReportToDB(db *gorm.DB, now time.Time) error {
 				return err
 			}
 			if err := tx.Model(&models.Record{}).Create(&deduped).Error; err != nil {
-				return err
-			}
-			if err := recordstore.AccumulateTrafficDailyTotals(tx, deduped); err != nil {
 				return err
 			}
 			return nil

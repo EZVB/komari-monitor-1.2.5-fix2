@@ -100,22 +100,6 @@ type Record struct {
 	ConnectionsUdp int       `json:"connections_udp"`
 }
 
-// TrafficDailyTotal stores exact traffic deltas by Shanghai calendar day.
-// It is intentionally separate from monitoring records so metric retention
-// cannot truncate the homepage daily and monthly traffic overview.
-type TrafficDailyTotal struct {
-	Client      string `json:"client" gorm:"type:varchar(36);primaryKey"`
-	Day         string `json:"day" gorm:"type:varchar(10);primaryKey"`
-	TrafficUp   int64  `json:"traffic_up" gorm:"type:bigint"`
-	TrafficDown int64  `json:"traffic_down" gorm:"type:bigint"`
-}
-
-// TrafficDailyMeta tracks versioned repairs of the calendar traffic ledger.
-type TrafficDailyMeta struct {
-	Key   string `json:"key" gorm:"type:varchar(64);primaryKey"`
-	Value string `json:"value" gorm:"type:varchar(255);not null"`
-}
-
 // GPURecord logs individual GPU metrics over time
 type GPURecord struct {
 	Client      string    `json:"client" gorm:"type:varchar(36);index"` // 客户端UUID
