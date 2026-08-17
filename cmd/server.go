@@ -152,6 +152,13 @@ func RunServer() {
 }
 
 func InitDatabase() {
+	if err := records.InitializeTrafficDailyTotals(
+		dbcore.GetDBInstance(),
+		time.Now(),
+	); err != nil {
+		log.Fatalf("Failed to initialize daily traffic totals: %v", err)
+	}
+
 	var count int64 = 0
 	if dbcore.GetDBInstance().Model(&models.User{}).Count(&count); count == 0 {
 		user, passwd, err := accounts.CreateDefaultAdminAccount()

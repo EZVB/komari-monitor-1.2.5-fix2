@@ -311,15 +311,15 @@ func getTrafficOverview(ctx context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.J
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to get client info", err.Error())
 	}
 
-	clientUUIDs := make([]string, 0, len(clientInfo))
+	visibleClients := make([]models.Client, 0, len(clientInfo))
 	for _, client := range clientInfo {
 		if !isAdmin && client.Hidden {
 			continue
 		}
-		clientUUIDs = append(clientUUIDs, client.UUID)
+		visibleClients = append(visibleClients, client)
 	}
 
-	overview, err := records.GetTrafficOverview(clientUUIDs, now)
+	overview, err := records.GetTrafficOverviewForClients(visibleClients, now)
 	if err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to aggregate traffic", err.Error())
 	}

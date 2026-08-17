@@ -10,6 +10,7 @@ import (
 
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
+	recordstore "github.com/komari-monitor/komari/database/records"
 	v1 "github.com/komari-monitor/komari/protocol/v1"
 	"github.com/komari-monitor/komari/utils"
 
@@ -254,6 +255,12 @@ func SaveClientReport(clientUUID string, report v1.Report) (err error) {
 		// 保存 Record
 		if err := tx.Create(&Record).Error; err != nil {
 			return fmt.Errorf("failed to save Record: %w", err)
+		}
+		if err := recordstore.AccumulateTrafficDailyTotals(
+			tx,
+			[]models.Record{Record},
+		); err != nil {
+			return fmt.Errorf("failed to save daily traffic total: %w", err)
 		}
 		return nil
 	})
