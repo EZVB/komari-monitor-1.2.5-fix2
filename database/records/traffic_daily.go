@@ -1,6 +1,7 @@
 package records
 
 import (
+	"errors"
 	"sort"
 	"time"
 
@@ -9,33 +10,17 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const trafficDayLayout = "2006-01-02"
+const (
+	trafficDayLayout             = "2006-01-02"
+	trafficDailyLedgerVersionKey = "calendar_traffic_ledger_version"
+	trafficDailyLedgerVersion    = "natural-calendar-v2"
+)
 
 // AccumulateTrafficDailyTotals persists exact per-report traffic deltas in a
 // compact daily ledger. The caller should use the same transaction that saves
 // the corresponding monitoring records.
 func AccumulateTrafficDailyTotals(db *gorm.DB, records []models.Record) error {
-	totals := make(map[string]models.TrafficDailyTotal)
-	for _, record := range records {
-		if record.Client == "" {
-			continue
-		}
-		up := nonNegativeTraffic(record.TrafficUp)
-		down := nonNegativeTraffic(record.TrafficDown)
-		if up == 0 && down == 0 {
-			continue
-		}
-
-		day := record.Time.ToTime().In(trafficOverviewLocation).Format(trafficDayLayout)
-		key := record.Client + "\x00" + day
-		total := totals[key]
-		total.Client = record.Client
-		total.Day = day
-		total.TrafficUp = saturatingAddTraffic(total.TrafficUp, up)
-		total.TrafficDown = saturatingAddTraffic(total.TrafficDown, down)
-		totals[key] = total
-	}
-
+	totals := aggregateTrafficDailyTotals(records, false)
 	for _, total := range totals {
 		if err := db.Clauses(clause.OnConflict{
 			Columns: []clause.Column{
@@ -59,16 +44,61 @@ func AccumulateTrafficDailyTotals(db *gorm.DB, records []models.Record) error {
 	return nil
 }
 
-// InitializeTrafficDailyTotals performs a one-time best-effort backfill from
-// retained monitoring rows. Future totals are independent of monitoring data
-// retention because every new report updates the ledger directly.
+func aggregateTrafficDailyTotals(
+	records []models.Record,
+	includeZero bool,
+) []models.TrafficDailyTotal {
+	totals := make(map[string]models.TrafficDailyTotal)
+	for _, record := range records {
+		if record.Client == "" {
+			continue
+		}
+		up := nonNegativeTraffic(record.TrafficUp)
+		down := nonNegativeTraffic(record.TrafficDown)
+		if !includeZero && up == 0 && down == 0 {
+			continue
+		}
+
+		day := record.Time.ToTime().In(trafficOverviewLocation).Format(trafficDayLayout)
+		key := record.Client + "\x00" + day
+		total := totals[key]
+		total.Client = record.Client
+		total.Day = day
+		total.TrafficUp = saturatingAddTraffic(total.TrafficUp, up)
+		total.TrafficDown = saturatingAddTraffic(total.TrafficDown, down)
+		totals[key] = total
+	}
+
+	result := make([]models.TrafficDailyTotal, 0, len(totals))
+	for _, total := range totals {
+		result = append(result, total)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Client != result[j].Client {
+			return result[i].Client < result[j].Client
+		}
+		return result[i].Day < result[j].Day
+	})
+	return result
+}
+
+// InitializeTrafficDailyTotals performs a versioned repair from retained
+// monitoring rows. Only recoverable client/day buckets are replaced, so exact
+// ledger rows remain available when older monitoring rows were already pruned.
+// Future totals are independent of monitoring retention because every new
+// report updates the ledger directly.
 func InitializeTrafficDailyTotals(db *gorm.DB, now time.Time) error {
-	var count int64
-	if err := db.Model(&models.TrafficDailyTotal{}).Count(&count).Error; err != nil {
+	if err := db.AutoMigrate(&models.TrafficDailyMeta{}); err != nil {
 		return err
 	}
-	if count > 0 {
+
+	var state models.TrafficDailyMeta
+	err := db.First(&state, "key = ?", trafficDailyLedgerVersionKey).Error
+	if err == nil && state.Value == trafficDailyLedgerVersion {
 		return nil
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
 
 	now = now.In(trafficOverviewLocation)
@@ -82,11 +112,13 @@ func InitializeTrafficDailyTotals(db *gorm.DB, now time.Time) error {
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.TrafficDailyTotal{}).Count(&count).Error; err != nil {
-			return err
-		}
-		if count > 0 {
+		var current models.TrafficDailyMeta
+		err := tx.First(&current, "key = ?", trafficDailyLedgerVersionKey).Error
+		if err == nil && current.Value == trafficDailyLedgerVersion {
 			return nil
+		}
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
 		}
 
 		backfill, err := trafficDailyBackfillRecords(
@@ -98,7 +130,28 @@ func InitializeTrafficDailyTotals(db *gorm.DB, now time.Time) error {
 		if err != nil {
 			return err
 		}
-		return AccumulateTrafficDailyTotals(tx, backfill)
+
+		for _, total := range aggregateTrafficDailyTotals(backfill, true) {
+			if err := tx.Where(
+				"client = ? AND day = ?",
+				total.Client,
+				total.Day,
+			).Delete(&models.TrafficDailyTotal{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Create(&total).Error; err != nil {
+				return err
+			}
+		}
+
+		state = models.TrafficDailyMeta{
+			Key:   trafficDailyLedgerVersionKey,
+			Value: trafficDailyLedgerVersion,
+		}
+		return tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{"value"}),
+		}).Create(&state).Error
 	})
 }
 

@@ -51,10 +51,9 @@ func GetTrafficOverview(clientUUIDs []string, now time.Time) (TrafficOverviewTot
 	)
 }
 
-// GetTrafficOverviewForClients returns the overview for the supplied clients
-// and applies any current-month manual usage baseline. A baseline replaces the
-// incomplete history before it was entered; traffic reported afterwards is
-// added normally. Today's totals always remain actual calendar-day traffic.
+// GetTrafficOverviewForClients returns natural Shanghai calendar-day and
+// calendar-month traffic for the supplied clients. Billing-cycle corrections
+// such as TrafficInitial deliberately do not belong in this overview.
 func GetTrafficOverviewForClients(
 	clientInfo []models.Client,
 	now time.Time,
@@ -78,12 +77,7 @@ func GetTrafficOverviewForClientsWithDB(
 		clientUUIDs = append(clientUUIDs, client.UUID)
 	}
 
-	overview, err := GetTrafficOverviewWithDB(db, clientUUIDs, now)
-	if err != nil || !db.Migrator().HasTable(&models.TrafficDailyTotal{}) {
-		return overview, err
-	}
-
-	return applyCurrentMonthTrafficBaselines(db, overview, clientInfo, now)
+	return GetTrafficOverviewWithDB(db, clientUUIDs, now)
 }
 
 // GetTrafficOverviewWithDB is the testable form of GetTrafficOverview.
@@ -222,136 +216,6 @@ func getTrafficOverviewFromDailyTotals(
 		overview.Month.Down,
 	)
 	return overview, nil
-}
-
-func applyCurrentMonthTrafficBaselines(
-	db *gorm.DB,
-	overview TrafficOverviewTotals,
-	clientInfo []models.Client,
-	now time.Time,
-) (TrafficOverviewTotals, error) {
-	now = now.In(trafficOverviewLocation)
-	monthStart := time.Date(
-		now.Year(), now.Month(), 1, 0, 0, 0, 0, trafficOverviewLocation,
-	)
-	monthDay := monthStart.Format(trafficDayLayout)
-	todayDay := now.Format(trafficDayLayout)
-
-	adjustedClients := make([]models.Client, 0)
-	adjustedUUIDs := make([]string, 0)
-	for _, client := range clientInfo {
-		initialAt := client.TrafficInitialAt.ToTime()
-		if client.UUID == "" || client.TrafficInitial <= 0 || initialAt.IsZero() {
-			continue
-		}
-		initialAt = initialAt.In(trafficOverviewLocation)
-		if initialAt.Before(monthStart) || initialAt.After(now) {
-			continue
-		}
-		adjustedClients = append(adjustedClients, client)
-		adjustedUUIDs = append(adjustedUUIDs, client.UUID)
-	}
-	if len(adjustedClients) == 0 {
-		return overview, nil
-	}
-
-	var rows []models.TrafficDailyTotal
-	if err := db.Model(&models.TrafficDailyTotal{}).
-		Where(
-			"client IN ? AND day >= ? AND day <= ?",
-			uniqueTrafficClientUUIDs(adjustedUUIDs),
-			monthDay,
-			todayDay,
-		).
-		Find(&rows).Error; err != nil {
-		return TrafficOverviewTotals{}, err
-	}
-
-	rawByClient := make(map[string]TrafficPeriodTotals, len(adjustedClients))
-	for _, row := range rows {
-		total := rawByClient[row.Client]
-		total.Up = saturatingAddTraffic(total.Up, nonNegativeTraffic(row.TrafficUp))
-		total.Down = saturatingAddTraffic(total.Down, nonNegativeTraffic(row.TrafficDown))
-		rawByClient[row.Client] = total
-	}
-
-	for _, client := range adjustedClients {
-		initialAt := client.TrafficInitialAt.ToTime().In(trafficOverviewLocation)
-		postUp, postDown, err := GetTrafficTotalsInRangeWithDB(
-			db,
-			client.UUID,
-			initialAt,
-			now,
-		)
-		if err != nil {
-			return TrafficOverviewTotals{}, err
-		}
-
-		raw := rawByClient[client.UUID]
-		overview.Month.Up = subtractTraffic(overview.Month.Up, raw.Up)
-		overview.Month.Down = subtractTraffic(overview.Month.Down, raw.Down)
-
-		basisUp := postUp
-		basisDown := postDown
-		if basisUp == 0 && basisDown == 0 {
-			basisUp = raw.Up
-			basisDown = raw.Down
-		}
-		initialUp, initialDown := splitTrafficTotal(
-			client.TrafficInitial,
-			basisUp,
-			basisDown,
-		)
-		overview.Month.Up = saturatingAddTraffic(
-			overview.Month.Up,
-			saturatingAddTraffic(initialUp, postUp),
-		)
-		overview.Month.Down = saturatingAddTraffic(
-			overview.Month.Down,
-			saturatingAddTraffic(initialDown, postDown),
-		)
-	}
-
-	overview.Month.Total = saturatingAddTraffic(
-		overview.Month.Up,
-		overview.Month.Down,
-	)
-	return overview, nil
-}
-
-func subtractTraffic(total, value int64) int64 {
-	if value <= 0 {
-		return total
-	}
-	if value >= total {
-		return 0
-	}
-	return total - value
-}
-
-func splitTrafficTotal(total, basisUp, basisDown int64) (int64, int64) {
-	total = nonNegativeTraffic(total)
-	basisUp = nonNegativeTraffic(basisUp)
-	basisDown = nonNegativeTraffic(basisDown)
-	basisTotal := saturatingAddTraffic(basisUp, basisDown)
-	if total == 0 {
-		return 0, 0
-	}
-	if basisTotal == 0 {
-		up := total / 2
-		return up, total - up
-	}
-
-	up := int64(math.Round(
-		float64(total) * float64(basisUp) / float64(basisTotal),
-	))
-	if up < 0 {
-		up = 0
-	}
-	if up > total {
-		up = total
-	}
-	return up, total - up
 }
 
 func uniqueTrafficClientUUIDs(clientUUIDs []string) []string {

@@ -110,6 +110,12 @@ type TrafficDailyTotal struct {
 	TrafficDown int64  `json:"traffic_down" gorm:"type:bigint"`
 }
 
+// TrafficDailyMeta tracks versioned repairs of the calendar traffic ledger.
+type TrafficDailyMeta struct {
+	Key   string `json:"key" gorm:"type:varchar(64);primaryKey"`
+	Value string `json:"value" gorm:"type:varchar(255);not null"`
+}
+
 // GPURecord logs individual GPU metrics over time
 type GPURecord struct {
 	Client      string    `json:"client" gorm:"type:varchar(36);index"` // 客户端UUID

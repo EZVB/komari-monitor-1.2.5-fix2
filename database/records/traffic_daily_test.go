@@ -107,7 +107,7 @@ func TestAccumulateTrafficDailyTotalsUsesShanghaiDayAndAddsDeltas(t *testing.T) 
 	assert.Equal(t, int64(10), rows[1].TrafficDown)
 }
 
-func TestTrafficOverviewUsesCurrentMonthManualBaselineWithoutChangingToday(t *testing.T) {
+func TestTrafficOverviewIgnoresCurrentMonthManualBillingBaseline(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(
@@ -163,7 +163,49 @@ func TestTrafficOverviewUsesCurrentMonthManualBaselineWithoutChangingToday(t *te
 	require.NoError(t, err)
 
 	assert.Equal(t, TrafficPeriodTotals{Up: 15, Down: 35, Total: 50}, overview.Today)
-	assert.Equal(t, TrafficPeriodTotals{Up: 335, Down: 785, Total: 1_120}, overview.Month)
+	assert.Equal(t, TrafficPeriodTotals{Up: 115, Down: 235, Total: 350}, overview.Month)
+}
+
+func TestInitializeTrafficDailyTotalsRepairsExistingRecoverableBuckets(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(
+		&models.Client{},
+		&models.Record{},
+		&models.TrafficDailyTotal{},
+	))
+	require.NoError(t, db.Table("records_long_term").AutoMigrate(&models.Record{}))
+	require.NoError(t, db.Create(&models.Client{
+		UUID:  "client-a",
+		Token: "token-a",
+	}).Error)
+
+	location := time.FixedZone("UTC+8", 8*60*60)
+	now := time.Date(2026, 8, 17, 12, 0, 0, 0, location)
+	require.NoError(t, db.Create(&models.TrafficDailyTotal{
+		Client:      "client-a",
+		Day:         "2026-08-17",
+		TrafficUp:   999,
+		TrafficDown: 999,
+	}).Error)
+	require.NoError(t, db.Create(&models.Record{
+		Client:      "client-a",
+		Time:        models.FromTime(now.Add(-time.Minute)),
+		TrafficUp:   10,
+		TrafficDown: 20,
+	}).Error)
+
+	require.NoError(t, InitializeTrafficDailyTotals(db, now))
+
+	var total models.TrafficDailyTotal
+	require.NoError(t, db.First(
+		&total,
+		"client = ? AND day = ?",
+		"client-a",
+		"2026-08-17",
+	).Error)
+	assert.Equal(t, int64(10), total.TrafficUp)
+	assert.Equal(t, int64(20), total.TrafficDown)
 }
 
 func TestTrafficOverviewIgnoresManualBaselineFromPreviousMonth(t *testing.T) {
