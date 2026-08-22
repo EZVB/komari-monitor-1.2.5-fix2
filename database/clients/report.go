@@ -10,6 +10,7 @@ import (
 
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
+	"github.com/komari-monitor/komari/database/trafficstats"
 	v1 "github.com/komari-monitor/komari/protocol/v1"
 	"github.com/komari-monitor/komari/utils"
 
@@ -233,27 +234,59 @@ func SaveClientReport(clientUUID string, report v1.Report) (err error) {
 	}
 	// 使用事务确保 Record 和 ClientsInfo 一致性
 	err = db.Transaction(func(tx *gorm.DB) error {
-		previous, err := getLatestTrafficRecord(tx, clientUUID)
-		if err != nil {
-			return fmt.Errorf("failed to load previous Record: %w", err)
+		var client models.Client
+		if err := tx.Where("uuid = ?", clientUUID).First(&client).Error; err != nil {
+			return fmt.Errorf("failed to load Client: %w", err)
 		}
-		if previous != nil {
-			systemRestarted := counterOwnerRestarted(report.Uptime, previous.Uptime)
-			Record.TrafficUp = utils.ComputeTrafficDeltaWithReset(
-				report.Network.TotalUp,
-				previous.NetTotalUp,
-				systemRestarted,
-			)
-			Record.TrafficDown = utils.ComputeTrafficDeltaWithReset(
-				report.Network.TotalDown,
-				previous.NetTotalDown,
-				systemRestarted,
-			)
+
+		currentCounters := trafficstats.ReportCounters{
+			NetTotalUp:   report.Network.TotalUp,
+			NetTotalDown: report.Network.TotalDown,
+			Uptime:       report.Uptime,
+		}
+		previousCounters, hasLedger, err :=
+			trafficstats.LastReportCountersWithDB(tx, clientUUID)
+		if err != nil {
+			return fmt.Errorf("failed to load traffic ledger: %w", err)
+		}
+		if hasLedger {
+			Record.TrafficUp, Record.TrafficDown =
+				trafficstats.ReportDelta(currentCounters, previousCounters)
+		} else {
+			previous, err := getLatestTrafficRecord(tx, clientUUID)
+			if err != nil {
+				return fmt.Errorf("failed to load previous Record: %w", err)
+			}
+			if previous != nil {
+				systemRestarted := counterOwnerRestarted(report.Uptime, previous.Uptime)
+				Record.TrafficUp = utils.ComputeTrafficDeltaWithReset(
+					report.Network.TotalUp,
+					previous.NetTotalUp,
+					systemRestarted,
+				)
+				Record.TrafficDown = utils.ComputeTrafficDeltaWithReset(
+					report.Network.TotalDown,
+					previous.NetTotalDown,
+					systemRestarted,
+				)
+			}
 		}
 
 		// 保存 Record
 		if err := tx.Create(&Record).Error; err != nil {
 			return fmt.Errorf("failed to save Record: %w", err)
+		}
+		if err := trafficstats.RecordReportWithDB(
+			tx,
+			client,
+			currentTime,
+			report.Network.TotalUp,
+			report.Network.TotalDown,
+			report.Uptime,
+			Record.TrafficUp,
+			Record.TrafficDown,
+		); err != nil {
+			return fmt.Errorf("failed to update traffic ledger: %w", err)
 		}
 		return nil
 	})
@@ -261,6 +294,7 @@ func SaveClientReport(clientUUID string, report v1.Report) (err error) {
 	if err != nil {
 		return err
 	}
+	trafficstats.Invalidate(clientUUID)
 
 	return nil
 }

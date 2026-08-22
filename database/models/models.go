@@ -100,6 +100,25 @@ type Record struct {
 	ConnectionsUdp int       `json:"connections_udp"`
 }
 
+// ClientTrafficLedger keeps billing traffic independent from metric retention.
+// Monitoring records may be compacted or deleted, while this single row per
+// client continues accumulating exact deltas reported by the Agent.
+type ClientTrafficLedger struct {
+	Client           string    `json:"client" gorm:"type:varchar(36);primaryKey"`
+	CycleStart       LocalTime `json:"cycle_start" gorm:"type:timestamp"`
+	AccountStart     LocalTime `json:"account_start" gorm:"type:timestamp"`
+	CycleUp          int64     `json:"cycle_up" gorm:"type:bigint;default:0"`
+	CycleDown        int64     `json:"cycle_down" gorm:"type:bigint;default:0"`
+	AccountUp        int64     `json:"account_up" gorm:"type:bigint;default:0"`
+	AccountDown      int64     `json:"account_down" gorm:"type:bigint;default:0"`
+	LastNetTotalUp   int64     `json:"last_net_total_up" gorm:"type:bigint;default:0"`
+	LastNetTotalDown int64     `json:"last_net_total_down" gorm:"type:bigint;default:0"`
+	LastUptime       int64     `json:"last_uptime" gorm:"type:bigint;default:0"`
+	LastReportAt     LocalTime `json:"last_report_at" gorm:"type:timestamp"`
+	CreatedAt        LocalTime `json:"created_at"`
+	UpdatedAt        LocalTime `json:"updated_at"`
+}
+
 // GPURecord logs individual GPU metrics over time
 type GPURecord struct {
 	Client      string    `json:"client" gorm:"type:varchar(36);index"` // 客户端UUID

@@ -128,36 +128,46 @@ func CurrentWithDB(
 	now = now.In(models.GetAppLocation())
 	resetDay := ResolveResetDay(client)
 	cycleStart := CycleStartForDay(now, resetDay)
-	up, down, err := recordstore.GetTrafficTotalsInRangeWithDB(
-		db,
-		client.UUID,
-		cycleStart,
-		now,
-	)
+	accountStart, initial := resolveAccountStart(client, cycleStart, now)
+	up, down, accountedUp, accountedDown, found, err :=
+		ledgerTotalsWithDB(db, client.UUID, cycleStart, accountStart)
 	if err != nil {
 		return Usage{}, err
 	}
-
-	accountedUp := up
-	accountedDown := down
-	initial := int64(0)
-
-	initialAt := client.TrafficInitialAt.ToTime()
-	if !initialAt.IsZero() {
-		initialAt = initialAt.In(now.Location())
-	}
-	if !initialAt.IsZero() &&
-		!initialAt.Before(cycleStart) &&
-		!initialAt.After(now) {
-		initial = client.TrafficInitial
-		accountedUp, accountedDown, err =
-			recordstore.GetTrafficTotalsInRangeWithDB(
-				db,
-				client.UUID,
-				initialAt,
-				now,
-			)
+	if !found {
+		up, down, err = recordstore.GetTrafficTotalsInRangeWithDB(
+			db,
+			client.UUID,
+			cycleStart,
+			now,
+		)
 		if err != nil {
+			return Usage{}, err
+		}
+		if accountStart.Equal(cycleStart) {
+			accountedUp, accountedDown = up, down
+		} else {
+			accountedUp, accountedDown, err =
+				recordstore.GetTrafficTotalsInRangeWithDB(
+					db,
+					client.UUID,
+					accountStart,
+					now,
+				)
+			if err != nil {
+				return Usage{}, err
+			}
+		}
+		if err := bootstrapLedgerWithDB(
+			db,
+			client,
+			cycleStart,
+			accountStart,
+			up,
+			down,
+			accountedUp,
+			accountedDown,
+		); err != nil {
 			return Usage{}, err
 		}
 	}

@@ -20,7 +20,16 @@ import (
 
 func DeleteClient(clientUuid string) error {
 	db := dbcore.GetDBInstance()
-	err := db.Delete(&models.Client{}, "uuid = ?", clientUuid).Error
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(
+			&models.ClientTrafficLedger{},
+			"client = ?",
+			clientUuid,
+		).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&models.Client{}, "uuid = ?", clientUuid).Error
+	})
 	if err != nil {
 		return err
 	}

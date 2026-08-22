@@ -136,12 +136,204 @@ func TestApplyTrafficMultiplierUsesAdditionalMultiples(t *testing.T) {
 	assert.Equal(t, int64(250), applyTrafficMultiplier(100, 1.5))
 }
 
+func TestLedgerKeepsTrafficAfterMonitoringRecordsAreDeleted(t *testing.T) {
+	db := newTrafficStatsTestDB(t)
+	location := models.GetAppLocation()
+	now := time.Date(2026, 8, 22, 12, 0, 0, 0, location)
+	client := models.Client{
+		UUID:             "durable-ledger",
+		TrafficLimitType: "sum",
+		TrafficResetDay:  20,
+	}
+
+	insertTrafficRecord(t, db, client.UUID, now.Add(-time.Hour), 100, 200, 10, 20)
+	insertTrafficRecord(t, db, client.UUID, now, 105, 207, 5, 7)
+	require.NoError(t, RecordReportWithDB(
+		db,
+		client,
+		now,
+		105,
+		207,
+		3600,
+		5,
+		7,
+	))
+
+	usage, err := CurrentWithDB(db, client, now)
+	require.NoError(t, err)
+	assert.Equal(t, int64(15), usage.Up)
+	assert.Equal(t, int64(27), usage.Down)
+	assert.Equal(t, int64(42), usage.Used)
+
+	require.NoError(t, db.Where("client = ?", client.UUID).
+		Delete(&models.Record{}).Error)
+	require.NoError(t, db.Table("records_long_term").
+		Where("client = ?", client.UUID).
+		Delete(&models.Record{}).Error)
+
+	usage, err = CurrentWithDB(db, client, now.Add(time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, int64(15), usage.Up)
+	assert.Equal(t, int64(27), usage.Down)
+	assert.Equal(t, int64(42), usage.Used)
+
+	insertTrafficRecord(t, db, client.UUID, now.Add(time.Minute), 108, 211, 3, 4)
+	require.NoError(t, RecordReportWithDB(
+		db,
+		client,
+		now.Add(time.Minute),
+		108,
+		211,
+		3660,
+		3,
+		4,
+	))
+
+	usage, err = CurrentWithDB(db, client, now.Add(2*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, int64(18), usage.Up)
+	assert.Equal(t, int64(31), usage.Down)
+	assert.Equal(t, int64(49), usage.Used)
+}
+
+func TestCurrentBootstrapsOfflineClientLedger(t *testing.T) {
+	db := newTrafficStatsTestDB(t)
+	location := models.GetAppLocation()
+	now := time.Date(2026, 8, 22, 12, 0, 0, 0, location)
+	client := models.Client{
+		UUID:             "offline-ledger",
+		TrafficLimitType: "sum",
+		TrafficResetDay:  20,
+	}
+
+	insertTrafficRecord(t, db, client.UUID, now.Add(-time.Hour), 100, 200, 10, 20)
+	insertTrafficRecord(t, db, client.UUID, now, 105, 207, 5, 7)
+
+	usage, err := CurrentWithDB(db, client, now)
+	require.NoError(t, err)
+	assert.Equal(t, int64(42), usage.Used)
+
+	var ledger models.ClientTrafficLedger
+	require.NoError(t, db.Where("client = ?", client.UUID).
+		First(&ledger).Error)
+	assert.Equal(t, int64(15), ledger.CycleUp)
+	assert.Equal(t, int64(27), ledger.CycleDown)
+	assert.Equal(t, int64(105), ledger.LastNetTotalUp)
+	assert.Equal(t, int64(207), ledger.LastNetTotalDown)
+
+	require.NoError(t, db.Where("client = ?", client.UUID).
+		Delete(&models.Record{}).Error)
+	require.NoError(t, db.Table("records_long_term").
+		Where("client = ?", client.UUID).
+		Delete(&models.Record{}).Error)
+
+	usage, err = CurrentWithDB(db, client, now.Add(time.Hour))
+	require.NoError(t, err)
+	assert.Equal(t, int64(15), usage.Up)
+	assert.Equal(t, int64(27), usage.Down)
+	assert.Equal(t, int64(42), usage.Used)
+}
+
+func TestLedgerKeepsManualStartingTrafficAndMultiplier(t *testing.T) {
+	db := newTrafficStatsTestDB(t)
+	location := models.GetAppLocation()
+	now := time.Date(2026, 8, 22, 12, 0, 0, 0, location)
+	initialAt := now.Add(-time.Hour)
+	client := models.Client{
+		UUID:              "durable-manual-ledger",
+		TrafficLimitType:  "sum",
+		TrafficMultiplier: 1,
+		TrafficResetDay:   20,
+		TrafficInitial:    100,
+		TrafficInitialAt:  models.FromTime(initialAt),
+	}
+
+	insertTrafficRecord(t, db, client.UUID, initialAt.Add(time.Minute), 10, 20, 10, 20)
+	insertTrafficRecord(t, db, client.UUID, now, 15, 27, 5, 7)
+	require.NoError(t, RecordReportWithDB(
+		db,
+		client,
+		now,
+		15,
+		27,
+		3600,
+		5,
+		7,
+	))
+
+	require.NoError(t, db.Where("client = ?", client.UUID).
+		Delete(&models.Record{}).Error)
+	require.NoError(t, db.Table("records_long_term").
+		Where("client = ?", client.UUID).
+		Delete(&models.Record{}).Error)
+
+	usage, err := CurrentWithDB(db, client, now.Add(time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, int64(15), usage.Up)
+	assert.Equal(t, int64(27), usage.Down)
+	assert.Equal(t, int64(184), usage.Used)
+}
+
+func TestReportDeltaUsesCurrentCountersAfterRestart(t *testing.T) {
+	up, down := ReportDelta(
+		ReportCounters{NetTotalUp: 10, NetTotalDown: 20, Uptime: 5},
+		ReportCounters{NetTotalUp: 1000, NetTotalDown: 2000, Uptime: 3600},
+	)
+	assert.Equal(t, int64(10), up)
+	assert.Equal(t, int64(20), down)
+}
+
+func TestLedgerStartsFreshAtMonthlyReset(t *testing.T) {
+	db := newTrafficStatsTestDB(t)
+	location := models.GetAppLocation()
+	beforeReset := time.Date(2026, 8, 19, 23, 59, 0, 0, location)
+	afterReset := time.Date(2026, 8, 20, 0, 1, 0, 0, location)
+	client := models.Client{
+		UUID:             "monthly-reset-ledger",
+		TrafficLimitType: "sum",
+		TrafficResetDay:  20,
+	}
+
+	insertTrafficRecord(t, db, client.UUID, beforeReset, 100, 200, 10, 20)
+	require.NoError(t, RecordReportWithDB(
+		db,
+		client,
+		beforeReset,
+		100,
+		200,
+		3600,
+		10,
+		20,
+	))
+
+	insertTrafficRecord(t, db, client.UUID, afterReset, 103, 204, 3, 4)
+	require.NoError(t, RecordReportWithDB(
+		db,
+		client,
+		afterReset,
+		103,
+		204,
+		3720,
+		3,
+		4,
+	))
+
+	usage, err := CurrentWithDB(db, client, afterReset)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), usage.Up)
+	assert.Equal(t, int64(4), usage.Down)
+	assert.Equal(t, int64(7), usage.Used)
+}
+
 func newTrafficStatsTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&models.Record{}))
+	require.NoError(t, db.AutoMigrate(
+		&models.Record{},
+		&models.ClientTrafficLedger{},
+	))
 	require.NoError(t, db.Table("records_long_term").AutoMigrate(&models.Record{}))
 	return db
 }

@@ -294,6 +294,7 @@ func GetDBInstance() *gorm.DB {
 		err = instance.AutoMigrate(
 			&models.User{},
 			&models.Client{},
+			&models.ClientTrafficLedger{},
 			&models.Record{},
 			&models.GPURecord{},
 			&models.Log{},
